@@ -23,6 +23,7 @@ COSAS A CORREGIR
 
 COSAS A TENER EN CUENTA
 
+->  nos dan la funcion imprimir tablero, está en egela
 ->  no es bueno meter muchas prioridades, se debe dejar al programa decidir por
     su cuenta, aunque a veces sea necesario
 

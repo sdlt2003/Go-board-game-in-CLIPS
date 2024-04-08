@@ -1,37 +1,38 @@
 
-(deffacts tablero-inicial
-    (posicion 1 1 estado vacio) (posicion 2 1 estado vacio) (posicion 3 1 estado vacio) (posicion 4 1 estado vacio) (posicion 5 1 estado vacio) (posicion 6 1 estado vacio)
-    (posicion 3 1 estado vacio) (posicion 3 2 estado vacio) (posicion 3 3 estado vacio) (posicion 3 4 estado vacio) (posicion 3 5 estado vacio) (posicion 3 6 estado vacio)
-    (posicion 4 1 estado vacio) (posicion 4 2 estado vacio) (posicion 4 3 estado vacio) (posicion 4 4 estado vacio) (posicion 4 5 estado vacio) (posicion 4 6 estado vacio)
-    (posicion 5 1 estado vacio) (posicion 5 2 estado vacio) (posicion 5 3 estado vacio) (posicion 5 4 estado vacio) (posicion 5 5 estado vacio) (posicion 5 6 estado vacio)
-    (posicion 6 1 estado vacio) (posicion 6 2 estado vacio) (posicion 6 3 estado vacio) (posicion 6 4 estado vacio) (posicion 6 5 estado vacio) (posicion 6 6 estado vacio)
-    (imprimir)
-    
+
+(defrule inicio
+    (not tablero)
+=>  
+    (assert (tablero (id 0) (padre -1) (nivel 0) (matriz 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
+    (assert (jugador (id 1) (tipo h) (color blancas) (fichas 0)))
+    (assert (jugador (id 2) (tipo h) (color negras) (fichas 0)))
+    (assert (turno 1))
 )
 
-(deffacts inicio-juego
-    (turno jugador1)
-)
-
-(defrule pedir-movimiento-jugador1
-    (declare (salience 90)) 
+(defrule mov-judador1
     (turno 1)
 =>
+    ?t <- (turno 1)
     (printout t "Jugador 1, ingresa tu movimiento (x y): ")
     (bind ?x (read))
     (bind ?y (read))
     (assert (movimiento jugador1 ?x ?y))
+    
+    (retract ?t)
+    (assert (turno 2))
 )
 
-(defrule pedir-movimiento-jugador2
-    (declare (salience 90))
+(defrule mov-jugador2
     (turno 2)
-    (jugador (id 2) (color blancas)....)
 =>
+    ?t <- (turno 2)
     (printout t "Jugador 2, ingresa tu movimiento (x y): ")
     (bind ?x (read))
     (bind ?y (read))
     (assert (movimiento jugador2 ?x ?y))
+    
+    (retract ?t)
+    (assert (turno 1))
 )
 
 (defrule cambiar-turno
@@ -56,36 +57,53 @@
 )
 
 
-(deffunction get-posicion-estado (?x ?y)
-    (bind ?estado vacio) 
-    (do-for-fact ((?p posicion)) (and (eq ?p:x ?x) (eq ?p:y ?y))
-        (bind ?estado (fact-slot-value ?p estado))
-    )
-    (return ?estado)
+;las siguientes funciones nos las daban en egela. Están modificadas para que se adapten a nuestro juego
+
+(deffunction generarLineas (?x)
+  (printout t crlf)
+  (printout t "      |")
+  (loop-for-count ?x
+    (printout t "-----|")
+  )
+  (printout t crlf)
 )
 
-
-(defrule imprimir-tablero
-    ?i<-(imprimir)
-    (turno ?x)
-=>
-    (printout t "  1 2 3 4 5 6 7 8 9" crlf)
-    (loop-for-count (?y 1 9)
-        (printout t ?y " ")
-        (loop-for-count (?x 1 9)
-            (bind ?estado (get-posicion-estado ?x ?y))
-            (if (eq ?estado negro) then
-                (printout t "X ")
-            else
-                (if (eq ?estado blanco) then
-                    (printout t "O ")
-                else
-                    (printout t ". "))
-            )
-        )
-        (printout t crlf)   
-    )
-    (retract ?i)
-    (if (eq ?x 1) then)
+(deffunction generarLineas2 (?x)
+  (printout t " ")
+  (loop-for-count ?x
+    (printout t "     |")
+  )
+  (printout t "     |")
+  (printout t crlf)
 )
 
+;Imprimir el estado actual del mapeo
+(deffunction imprimir ($?tablero)
+    (printout t crlf)
+    (printout t crlf)
+    (loop-for-count (?i 0 ?*tamanoFila*) do
+      (if (= ?i 0) then
+      (printout t "       ")
+      else
+      (printout t "  "?i "   "))
+    )
+    (generarLineas ?*tamanoFila*)
+    (loop-for-count (?fila 1 ?*tamanoFila* ) do
+      (generarLineas2 ?*tamanoFila*)
+      (printout t "   " ?fila "  |" )
+      (loop-for-count (?columna 1 ?*tamanoFila*) do
+            (bind ?contenido (nth$  (+ (* ?*tamanoFila* (- ?fila 1)) ?columna) $?mapeo))
+			(if (or (eq ?contenido ficha_blanca)(eq ?contenido ficha_negra)) then
+                (if (eq ?contenido ficha_blanca) then
+                    (printout t  "  o  |")
+                )
+				(if (eq ?contenido ficha_negra) then
+                    (printout t  "  x  |")
+                )
+			else
+				(printout t "     |")
+			)
+      )
+      (generarLineas ?*tamanoFila*)
+    )
+)
