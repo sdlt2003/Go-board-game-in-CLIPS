@@ -1,0 +1,31 @@
+
+COSAS A CORREGIR
+
+->  hacer el tablero una variable multicampo, estilo:
+    (tablero (id x) (padre y) (nivel z) (matriz 0 0 0 0 0 .. 0))
+    ; 0 = vacio, 1 = blanco, -1 = negro i.e.
+
+->  hacer una variable global que permita ajustar el tamaño del tablero
+
+->  en vez de hacer todo en un deffact al principio, se puede hacer con un rule, estilo:
+    (defrule inicio
+        (not tablero)
+        ->
+        (tablero (id x) (padre y) (depth z) (matriz 0 0 0 0 0 .. 0))
+        ...)
+    conseguir hacer este rule inicio
+
+->  los jugadores tienen que tener mucha mas personalización
+    -> tienen que tener parámetro de tipo (jugador/cpu)
+    -> tienen que tener parametro de color (blanco/negro)
+
+
+
+COSAS A TENER EN CUENTA
+
+->  no es bueno meter muchas prioridades, se debe dejar al programa decidir por
+    su cuenta, aunque a veces sea necesario
+
+->  las funciones tienen que ir antes que las rules que usen esas funciones
+->  (en windows) si ejecutas otro exe que se parece a la terminal, a la hora de
+    ejecutar con ias, va a ir más rápido
