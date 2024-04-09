@@ -1,16 +1,26 @@
 
+(defglobal ?*tamanoFila* = 0)
+(defglobal ?*tamanoColumna* = 0)
 
 (defrule inicio
     (not tablero)
 =>  
-    (assert (tablero (id 0) (padre -1) (nivel 0) (matriz 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
+    (printout t "Inserte el tamaño de filas y columnas: ")
+    (bind ?*tamañoFila (read))
+    (bind ?*tamañoColumna (read))
+    (bind ?total (* ?*tamañoFila ?*tamañoColumna))
+    (assert (tablero (id 0) (padre -1) (nivel 0) (matriz ))) 
     (assert (jugador (id 1) (tipo h) (color blancas) (fichas 0)))
     (assert (jugador (id 2) (tipo h) (color negras) (fichas 0)))
     (assert (turno 1))
+
+    
 )
 
-(defrule mov-judador1
+(defrule mov-jugador1
     (turno 1)
+    (jugador (id ))
+    (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo)
 =>
     ?t <- (turno 1)
     (printout t "Jugador 1, ingresa tu movimiento (x y): ")
@@ -33,19 +43,6 @@
     
     (retract ?t)
     (assert (turno 1))
-)
-
-(defrule cambiar-turno
-    (declare (salience 80))
-    ?t <- (turno ?jugador)
-=>
-    (if (eq ?jugador jugador1)
-        then
-        (bind ?nuevo-jugador jugador2)
-        else
-        (bind ?nuevo-jugador jugador1))
-    (retract ?t)
-    (assert (turno ?nuevo-jugador))
 )
 
 (defrule verificar-movimiento
@@ -78,7 +75,7 @@
 )
 
 ;Imprimir el estado actual del mapeo
-(deffunction imprimir ($?tablero)
+(deffunction imprimir ($?mapeo)
     (printout t crlf)
     (printout t crlf)
     (loop-for-count (?i 0 ?*tamanoFila*) do
@@ -93,12 +90,12 @@
       (printout t "   " ?fila "  |" )
       (loop-for-count (?columna 1 ?*tamanoFila*) do
             (bind ?contenido (nth$  (+ (* ?*tamanoFila* (- ?fila 1)) ?columna) $?mapeo))
-			(if (or (eq ?contenido ficha_blanca)(eq ?contenido ficha_negra)) then
-                (if (eq ?contenido ficha_blanca) then
-                    (printout t  "  o  |")
+			(if (or (eq ?contenido 1)(eq ?contenido -1)) then
+                (if (eq ?contenido 1) then
+                    (printout t  "  B  |")
                 )
-				(if (eq ?contenido ficha_negra) then
-                    (printout t  "  x  |")
+				(if (eq ?contenido -1) then
+                    (printout t  "  N  |")
                 )
 			else
 				(printout t "     |")
