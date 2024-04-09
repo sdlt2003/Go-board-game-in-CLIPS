@@ -71,22 +71,29 @@
     (assert (turno 1))
 )
 
-(defrule mov-jugador1
+(defrule mov-1-humano
     (turno 1)
-    (jugador (id ))
+    (or (jugador (id 1) (tipo h) (color b) (puntos ?puntos))
+        (jugador (id 1) (tipo h) (color n) (puntos ?puntos))
+    )
     (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo))
 =>
     ?t <- (turno 1)
     (printout t "Jugador 1, ingresa tu movimiento (x y): ")
-    (bind ?x (read))
-    (bind ?y (read))
+    (bind $?mov (read))
+    (bind ?x (nth$ 1 $?mov))
+    (bind ?y (nth$ 2 $?mov))    
     (assert (movimiento jugador1 ?x ?y))
-    
+    ; TODO verificar que el movimiento sea valido
+    ; TODO conseguir implementar el movimiento en el tablero
+
     (retract ?t)
+
+    ; TODO verificar si el tablero esta lleno, quizás hacerlo con un if
     (assert (turno 2))
 )
 
-(defrule mov-jugador2
+(defrule mov-1-humano ; mismos TODOs que mov-jugador1
     (turno 2)
 =>
     ?t <- (turno 2)
@@ -99,16 +106,27 @@
     (assert (turno 1))
 )
 
-(defrule verificar-movimiento
+(defrule verificar-movimiento ; TODO revisar esta regla 
     (movimiento ?jugador ?x ?y)
-    ?pos <- (posicion ?x ?y vacio)
+    (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo))
 =>
-    (retract ?pos)
-    (assert (posicion ?x ?y (if (eq ?jugador jugador1) then negro else blanco)))
+    (if (eq ?jugador jugador1) then
+        (bind ?valor 1)
+    )
+    (if (eq ?jugador jugador2) then
+        (bind ?valor -1)
+    )
+    (bind ?posicion (+ (* ?*tamanoFila* (- ?y 1)) ?x))
+    (bind ?mapeo (replace$ ?mapeo ?posicion ?valor))
+    (assert (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo)))
+    (retract (movimiento ?jugador ?x ?y))
 )
 
+(defrule mov-1-maquina) ; TODO implementar movimiento de la maquina
+(defrule mov-2-maquina) ; TODO implementar movimiento de la maquina
 
-;las siguientes funciones nos las daban en egela. Están modificadas para que se adapten a nuestro juego
+
+; Las siguientes funciones nos las daban en egela. Están modificadas para que se adapten a nuestro juego
 
 (deffunction generarLineas (?x)
   (printout t crlf)
@@ -128,7 +146,7 @@
   (printout t crlf)
 )
 
-;Imprimir el estado actual del mapeo
+; TODO corregir esta funcion para que se adecue correctamente a nuestro juego
 (deffunction imprimir ($?mapeo)
     (printout t crlf)
     (printout t crlf)
