@@ -76,9 +76,10 @@
     (or (jugador (id 1) (tipo h) (color b) (puntos ?puntos))
         (jugador (id 1) (tipo h) (color n) (puntos ?puntos))
     )
-    (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo))
+    (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo))                     ;no se si tengo que atrapar el tablero aquí
 =>
     ?t <- (turno 1)
+    $?map <- (tablero (id ?id) (padre ?padre) (nivel ?nivel) (matriz ?mapeo))   ;o aquí
     (printout t "Jugador 1, ingresa tu movimiento (x y): ")
     (bind $?mov (read))
     (bind ?x (nth$ 1 $?mov))
@@ -86,15 +87,18 @@
     (assert (movimiento jugador1 ?x ?y))
     ; TODO verificar que el movimiento sea valido
     ; TODO conseguir implementar el movimiento en el tablero
-
+    
+    
     (retract ?t)
-
-    ; TODO verificar si el tablero esta lleno, quizás hacerlo con un if
-    (assert (turno 2))
+    ; TODO verificar si el tablero esta lleno para acabar el programa, quizás hacerlo con un if
+    (assert (verificar-movimiento))
 )
 
-(defrule mov-1-humano ; mismos TODOs que mov-jugador1
+(defrule mov-2-humano ; mismos TODOs que mov-jugador1
     (turno 2)
+    (or (jugador (id 2) (tipo h) (color b) (puntos ?puntos))
+        (jugador (id 2) (tipo h) (color n) (puntos ?puntos))
+    )
 =>
     ?t <- (turno 2)
     (printout t "Jugador 2, ingresa tu movimiento (x y): ")
@@ -103,27 +107,19 @@
     (assert (movimiento jugador2 ?x ?y))
     
     (retract ?t)
-    (assert (turno 1))
+    (assert (verificar-movimiento))
 )
 
-(defrule verificar-movimiento ; TODO revisar esta regla 
-    (movimiento ?jugador ?x ?y)
-    (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo))
+
+
+(defrule mov-1-maquina
+    (initial-fact)
 =>
-    (if (eq ?jugador jugador1) then
-        (bind ?valor 1)
-    )
-    (if (eq ?jugador jugador2) then
-        (bind ?valor -1)
-    )
-    (bind ?posicion (+ (* ?*tamanoFila* (- ?y 1)) ?x))
-    (bind ?mapeo (replace$ ?mapeo ?posicion ?valor))
-    (assert (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo)))
-    (retract (movimiento ?jugador ?x ?y))
-)
-
-(defrule mov-1-maquina) ; TODO implementar movimiento de la maquina
-(defrule mov-2-maquina) ; TODO implementar movimiento de la maquina
+) ; TODO implementar movimiento de la maquina
+(defrule mov-2-maquina
+    (initial-fact)
+=>
+) ; TODO implementar movimiento de la maquina
 
 
 ; Las siguientes funciones nos las daban en egela. Están modificadas para que se adapten a nuestro juego
@@ -146,7 +142,7 @@
   (printout t crlf)
 )
 
-; TODO corregir esta funcion para que se adecue correctamente a nuestro juego
+; TODO corregir esta funcion para que se adecúe correctamente a nuestro juego
 (deffunction imprimir ($?mapeo)
     (printout t crlf)
     (printout t crlf)
