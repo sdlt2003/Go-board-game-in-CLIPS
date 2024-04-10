@@ -13,13 +13,13 @@
     (bind ?*tamanoFila* ?tamano)
     (bind ?*tamanoColumna* ?tamano)
     (if (eq ?tamano 4) then
-        (assert (tablero (id 0) (padre -1) (nivel 0) (matriz (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))))
+        (assert (tablero (id 0) (padre -1) (nivel 0) (matriz 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
     )
     (if (eq ?tamano 6) then
-        (assert (tablero (id 0) (padre -1) (nivel 0) (matriz (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))))
+        (assert (tablero (id 0) (padre -1) (nivel 0) (matriz 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
     )
     (if (eq ?tamano 9) then
-        (assert (tablero (id 0) (padre -1) (nivel 0) (matriz ( 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))))
+        (assert (tablero (id 0) (padre -1) (nivel 0) (matriz 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
     ) 
 
     (printout t "Inserte tipo del jugador 1 (h/m) : " crlf)
@@ -68,58 +68,66 @@
         )
     )
 
-    (assert (turno 1))
+    ; inicializacion de turno
+    (if (eq ?jugador1 h) then
+        (assert (turno h))
+    )
+    (if (eq ?jugador1 m) then
+        (assert (turno m))
+    )
 )
 
-(defrule mov-1-humano
-    (turno 1)
-    (or (jugador (id 1) (tipo h) (color b) (puntos ?puntos))
-        (jugador (id 1) (tipo h) (color n) (puntos ?puntos))
-    )
-    (tablero (id ?id) (padre -1) (nivel 0) (matriz ?mapeo))                     ;no se si tengo que atrapar el tablero aquí
+(defrule mov-humano
+    ?t <- (turno h) 
+    ?j <- (jugador (id ?id) (tipo h) (color ?c) (puntos ?puntos))
+    ?tab <- (tablero (matriz ?mapeo))
 =>
-    ?t <- (turno 1)
-    $?map <- (tablero (id ?id) (padre ?padre) (nivel ?nivel) (matriz ?mapeo))   ;o aquí
-    (printout t "Jugador 1, ingresa tu movimiento (x y): ")
-    (bind $?mov (read))
-    (bind ?x (nth$ 1 $?mov))
-    (bind ?y (nth$ 2 $?mov))    
-    (assert (movimiento jugador1 ?x ?y))
-    ; TODO verificar que el movimiento sea valido
-    ; TODO conseguir implementar el movimiento en el tablero
-    
-    
+    (bind ?aux TRUE)
+    (while ?aux do
+        (if (eq ?id 1) then
+            (printout t "Jugador 1, ingresa tu movimiento (x y):")
+        else 
+            (printout t "Jugador 2, ingresa tu movimiento (x y):")
+        )
+        (bind $?mov (read))
+        (bind ?x (nth$ 1 $?mov))
+        (bind ?y (nth$ 2 $?mov))
+        (bind ?pos (+ (* ?*tamanoFila* (- ?y 1)) ?x))
+        (bind ?est (nth$ ?pos ?mapeo))
+
+        ; Este modelo no maneja el error de poner 2 blancas o 2 negras seguidas
+        ; depende completamente de la buena fe del jugador
+        (if (eq ?est 0) then
+            (if (eq ?c b) then 
+                (retract ?tab) 
+                (assert tablero ) ; TODO colocar ficha blanca
+            )
+            (if (eq ?c n) then
+                (retract ?tab)
+                (assert tablero ) ; TODO colocar ficha negra
+            )
+            ?aux <- FALSE
+        else 
+            (printout t "Movimiento invalido" crlf)
+        )
+    )
+
     (retract ?t)
+    ; No entiendo cómo moverme entre turnos, porque puede darse que el jugador2 sea humano de nuevo
+    ; o sea una máquina. Dónde capturo el jugador2?
+
     ; TODO verificar si el tablero esta lleno para acabar el programa, quizás hacerlo con un if
-    (assert (verificar-movimiento))
-)
-
-(defrule mov-2-humano ; mismos TODOs que mov-jugador1
-    (turno 2)
-    (or (jugador (id 2) (tipo h) (color b) (puntos ?puntos))
-        (jugador (id 2) (tipo h) (color n) (puntos ?puntos))
-    )
-=>
-    ?t <- (turno 2)
-    (printout t "Jugador 2, ingresa tu movimiento (x y): ")
-    (bind ?x (read))
-    (bind ?y (read))
-    (assert (movimiento jugador2 ?x ?y))
     
-    (retract ?t)
-    (assert (verificar-movimiento))
+
 )
 
-
-
-(defrule mov-1-maquina
-    (initial-fact)
-=>
-) ; TODO implementar movimiento de la maquina
-(defrule mov-2-maquina
-    (initial-fact)
-=>
-) ; TODO implementar movimiento de la maquina
+;(defrule mov-maquina
+;    ?t <- (turno m) 
+;    ?j <- (jugador (id ?id) (tipo m) (color ?c) (puntos ?puntos))
+;    ?tab <- (tablero (matriz ?mapeo))
+;=>
+;    ; TODO implementar movimiento de la maquina
+;)
 
 
 ; Las siguientes funciones nos las daban en egela. Están modificadas para que se adapten a nuestro juego
