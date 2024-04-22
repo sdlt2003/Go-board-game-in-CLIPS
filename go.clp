@@ -68,6 +68,56 @@
 )
 ; //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+; esta funcion tiene que comprobar si con la ultima ficha colocada se ha formado un grupo, RETURN array de posiciones
+(deffunction grupo($?mapeo )
+    ; Obtiene el color de la última ficha colocada
+    (bind ?lastColor (nth$ (length$ $?mapeo) $?mapeo))
+
+    ; Inicializa un array para almacenar las posiciones de las fichas en el grupo
+    (bind ?groupPositions (create$))
+
+    ; Recorre el tablero de atrás hacia adelante
+    (loop-for-count (?i (- (length$ $?mapeo) 1) 1 -1)
+        ; Obtiene el color de la ficha actual
+        (bind ?currentColor (nth$ ?i $?mapeo))
+
+        ; Si la ficha actual es del mismo color que la última ficha colocada
+        (if (eq ?currentColor ?lastColor) then
+            ; Añade la posición de la ficha actual al array de posiciones del grupo
+            (bind ?groupPositions (insert$ ?groupPositions 1 ?i))
+        else
+            ; Si la ficha actual no es del mismo color, rompe el bucle
+            (break)
+        )
+    )
+
+    ; Si se ha formado un grupo (al menos una ficha del color opuesto encerrada)
+    (if (or (> (length$ ?groupPositions) 3) 
+            (and (= (length$ ?groupPositions) 2) (or (= (first$ ?groupPositions) 1) (= (first$ ?groupPositions) (length$ $?mapeo)))))
+        ; Devuelve el array de posiciones del grupo
+        (return ?groupPositions)
+    else
+        ; Si no se ha formado un grupo, devuelve un array vacío
+        (return (create$))
+    )
+)
+
+; esta funcion tiene que comprobar si el ultimo movimiento jugado es legal. para ello seguramente
+; usará la función grupo
+;(deffunction verificar())
+
+; esta funcion tiene que comprobar si con la ultima ficha colocada el jugador come una ficha
+; tambien debería sumar puntos al jugador (0 si no come nada, X si come X fichas)
+;(deffunction comer())
+
+; esta funcion tiene que evaluar si para el jugador dado por parámetro, le quedan movimientos legales
+; para ello, para cada posicion del tablero que este libre, se tiene que ver si se puede colocar una ficha
+; en esa posición (con cont > 0 valdría)
+;(deffunction evaluar_fin())
+
+; esta funcion tiene que comprobar si con el ultimo movimiento jugado, no existen mas movimientos legales
+; para ello, se va a tener que comprobar cada vez que un jugador mueva, si el otro tiene al menos un movimiento
+;(deffunction fin())
 
 (defrule inicio
     (not (tablero))
@@ -140,6 +190,9 @@
     ?j<-(jugador (id ?i) (tipo h) (color ?c) (puntos ?puntos) (activo TRUE))
     ?tab <- (tablero (matriz $?mapeo))
 =>
+    (printout t "Tablero: " crlf)
+    (imprimir $?mapeo)
+
     (bind ?aux TRUE)
     (while ?aux do
         (if (eq ?i 1) then
@@ -167,7 +220,6 @@
                 (retract ?tab)
                 (bind $?mapeo (replace$ $?mapeo ?pos ?pos n)) 
                 (assert (tablero (matriz $?mapeo))) ; TODO colocar ficha negra
-                (imprimir $?mapeo)
             )
             (bind ?aux FALSE)
         else 
@@ -178,9 +230,6 @@
     (do-for-fact ((?juga jugador)) (eq ?juga:activo FALSE)
         (bind ?ident ?juga)
     )
-    
-    (printout t ?ident crlf)
-    (printout t ?j crlf)
 
     (modify ?ident (activo TRUE))
     (modify ?j (activo FALSE))
