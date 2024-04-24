@@ -68,47 +68,62 @@
 )
 ; //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-; esta funcion tiene que comprobar si con la ultima ficha colocada se ha formado un grupo, RETURN array de posiciones
-(deffunction grupo($?mapeo )
+;(deffunction grupo_uwu(?pos ?$?mapeo)
+
     ; Obtiene el color de la última ficha colocada
-    (bind ?lastColor (nth$ (length$ $?mapeo) $?mapeo))
+    ; Con esto, podemos asignar a color1: x; color2: y; asi no repetimos code en ningun lado
 
-    ; Inicializa un array para almacenar las posiciones de las fichas en el grupo
-    (bind ?groupPositions (create$))
+    ; Inicializa un array para almacenar los grupos que se cierran:
+    ; IMPORTANTE no existen multicampos de multicampos. Almacenar como un multicampo de strings
+    ; despues, coger mediante nth$ y tratar cada string como un multicampo en si mismo
 
-    ; Recorre el tablero de atrás hacia adelante
-    (loop-for-count (?i (- (length$ $?mapeo) 1) 1 -1)
-        ; Obtiene el color de la ficha actual
-        (bind ?currentColor (nth$ ?i $?mapeo))
+    ; Inicializa una cola para el recorrido en anchura
 
-        ; Si la ficha actual es del mismo color que la última ficha colocada
-        (if (eq ?currentColor ?lastColor) then
-            ; Añade la posición de la ficha actual al array de posiciones del grupo
-            (bind ?groupPositions (insert$ ?groupPositions 1 ?i))
-        else
-            ; Si la ficha actual no es del mismo color, rompe el bucle
-            (break)
-        )
-    )
+    ; WHILE la cola no esté vacía
 
-    ; Si se ha formado un grupo (al menos una ficha del color opuesto encerrada)
-    (if (or (> (length$ ?groupPositions) 3) 
-            (and (= (length$ ?groupPositions) 2) (or (= (first$ ?groupPositions) 1) (= (first$ ?groupPositions) (length$ $?mapeo)))))
-        ; Devuelve el array de posiciones del grupo
-        (return ?groupPositions)
-    else
-        ; Si no se ha formado un grupo, devuelve un array vacío
-        (return (create$))
-    )
-)
+        ; Obtiene la primera posición de la cola
+
+        ; Elimina la primera posición de la cola
+
+        ; Se comprueban las 8 posiciones adyacentes a la posición actual:
+        ; IMPORTANTE:   debe haber una variable que mantenga la posicion actual como "anterior"
+        ;               para no entrar en bucles infinitos, etc.
+
+        ; IF alguna de esas posiciones está fuera del tablero
+            ; Continúa con la siguiente posición
+        
+        ; De entre todas, coger solo la que esté mas cerca de una ficha del otro color;
+        ; (esto probablemente requiera otro recorrido en anchura)
+
+        ; IF la ficha agregada es la inicial
+            ; la lista se ordena (a decidir como) para su futura comprobación
+            ; IF la lista no está en la lista de grupos cerrados
+                ; Se añade a la lista de grupos cerrados
+
+    ; END WHILE
+        
+    ; IF se ha formado un grupo (al menos una ficha del color opuesto encerrada)
+
+        ; Devuelve TRUE
+
+        ; Si no se ha formado un grupo, devuelve FALSE    
+
+;END FUNCTION
+
+
+
+;(deffunction comer(?pos $?mapeo))
+
+    ; llamada a grupo
+    ; IF grupo = TRUE
+        ; Se eliminan las blancas que estén dentro del grupo
+        ; Se actualiza el tablero
+
+; END FUNCTION
 
 ; esta funcion tiene que comprobar si el ultimo movimiento jugado es legal. para ello seguramente
 ; usará la función grupo
 ;(deffunction verificar())
-
-; esta funcion tiene que comprobar si con la ultima ficha colocada el jugador come una ficha
-; tambien debería sumar puntos al jugador (0 si no come nada, X si come X fichas)
-;(deffunction comer())
 
 ; esta funcion tiene que evaluar si para el jugador dado por parámetro, le quedan movimientos legales
 ; para ello, para cada posicion del tablero que este libre, se tiene que ver si se puede colocar una ficha

@@ -1,12 +1,9 @@
+funcion grupo:
+· como parámetro, le voy a pasar la posiciónd ela ultima ficha colocada, ademas de la variable multicampo mapeo
 
-1. saber la ficha que se ha movido
-ultima y pasarla como param para 
-facilitar las cosas?
-2. comprobar si tiene contacto con alguna
-ficha del otro color en c.h.v.
-3. si lo tiene, ver si es un grupo y/o de cuantas
-fichas está compuesto
-4. ver si con tu movimiento rodeas al grupo
-5. si sí, eliminar ese grupo y contar las eliminadas
-6. devolver el $?mapeo cambiado y el cont de las 
-fichas eliminadas para sumarlas como puntos despues
+· quiero hacer un recorrido en anchura, para ver cual es la ficha mas cercana de otro color
+
+·una vez encontrada, deberá hacerse otro recorrido en anchura para ver los posibles recorridos que podría hacer el grupo (en caso de que la ficha colocada pueda formar un grupo. si la ficha colocada no está en contacto (8 casillas a su alrededor) o el recorrido no se cierra, no hay grupo). Este recorrido debería seguir el siguiente criterio:
+se parte de la ficha contraria al color de la ficha que se ha colocado, y se va extendiendo. hay que comprobar las 4 casillas circundantes a la ficha (dist1). dist 2 tendrá 8 casillas, etc. hay que ver si eso se cierra o no
+
+sistema de puntuación: al final, cambiar a una rule que cuente las fichas. el que tenga mas, gana (no comprobarse)
