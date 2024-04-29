@@ -1,3 +1,4 @@
+; Definición basica de tablero y jugador
 
 (defglobal ?*tamanoFila* = 0)
 (defglobal ?*tamanoColumna* = 0)
@@ -17,7 +18,60 @@
     (slot activo)
 )
 
-; Las siguientes funciones nos las daban en egela. Están modificadas para que se adapten a nuestro juego
+; //////////////////////// Funciones (meter debajo de uwu_grupo)
+
+; Función para determinar si una posición está fuera de los límites del tablero
+(deffunction fuera-de-tablero (?pos)
+    (bind ?x (mod (- ?pos 1) ?*tamanoFila*))
+    (bind ?y (div (- ?pos 1) ?*tamanoFila*))
+    (return (or (< ?x 0) (>= ?x ?*tamanoFila*)
+                (< ?y 0) (>= ?y ?*tamanoColumna*)))
+)
+
+
+; Función para obtener adyacencias en el tablero
+(deffunction obtener-adyacentes (?pos)
+    (bind ?x (mod (- ?pos 1) ?*tamanoFila*))
+    (bind ?y (div (- ?pos 1) ?*tamanoFila*))
+    (bind ?adyacentes (create$))
+    (loop-for-count (?dx -1 1) do
+        (loop-for-count (?dy -1 1) do
+            (if (and (neq ?dx 0) or (neq ?dy 0)) then
+                (progn
+                    (bind ?nx (+ ?x ?dx))
+                    (bind ?ny (+ ?y ?dy))
+                    (if (and (>= ?nx 0) (< ?nx ?*tamanoFila*)
+                             (>= ?ny 0) (< ?ny ?*tamanoColumna*))
+                        then
+                        (bind ?nPos (+ 1 (+ (* ?ny ?*tamanoFila*) ?nx)))
+                        (bind ?adyacentes (insert$ ?adyacentes (length$ ?adyacentes) ?nPos))
+                    )
+                )
+            )
+        )
+    )
+    (return ?adyacentes)
+)
+
+(deffunction adyacente-a-oponente (?pos ?ultimoColor $?mapeo)
+    ;; Esta función verifica si en la posición dada (?pos), hay una ficha del oponente respecto al ?ultimoColor.
+    ;; Se asume que ?ultimoColor es el color de la última ficha jugada y que quieres verificar contra el otro color.
+    ;; $?mapeo es el estado actual del tablero representado como una lista (o matriz en formato lineal).
+
+    ;; Calcula el índice en el arreglo basado en ?pos para obtener el contenido de esa celda.
+    (bind ?contenido (nth$ ?pos $?mapeo))
+
+    ;; Determina qué color sería el oponente. Esto asume que solo hay dos colores, 'b' y 'n'.
+    (bind ?colorOponente (if (eq ?ultimoColor "b") then "n" else "b"))
+
+    ;; Comprueba si la ficha en la posición es del color del oponente.
+    (return (eq ?contenido ?colorOponente))
+)
+
+
+; //////////////////////////////
+
+; Las siguientes funciones nos las daban en egela. Están modificadas para que se adapten a nuestro juego. Sirven para representar visualmente el tablero
 ; //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 (deffunction generarLineas (?x)
   (printout t crlf)
@@ -68,48 +122,47 @@
 )
 ; //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-;(deffunction grupo_uwu(?pos ?$?mapeo)
 
-    ; Obtiene el color de la última ficha colocada
-    ; Con esto, podemos asignar a color1: x; color2: y; asi no repetimos code en ningun lado
 
-    ; Inicializa un array para almacenar los grupos que se cierran:
-    ; IMPORTANTE no existen multicampos de multicampos. Almacenar como un multicampo de strings
-    ; despues, coger mediante nth$ y tratar cada string como un multicampo en si mismo
+(deffunction grupo_uwu (?pos $?mapeo)
+    ;; Obtiene el color de la última ficha colocada
+    (bind ?ultimoColor (nth$ (- (length$ $?mapeo) 1) $?mapeo))
 
-    ; Inicializa una cola para el recorrido en anchura
+    ;; Inicializa un array para almacenar los grupos que se cierran
+    (bind ?gruposCerrados (create$))
 
-    ; WHILE la cola no esté vacía
+    ;; Inicializa una cola para el recorrido en anchura
+    (bind ?cola (create$ ?pos))
 
-        ; Obtiene la primera posición de la cola
+    ;; Bucle mientras la cola no esté vacía
+    (while (neq (length$ ?cola) 0)
+        (bind ?actual (nth$ 1 ?cola))
+        (bind ?cola (rest$ ?cola))
+        (bind ?posicionesAdyacentes (obtener-adyacentes ?actual))
 
-        ; Elimina la primera posición de la cola
+        (foreach ?pos ?posicionesAdyacentes
+            (if (not (fuera-de-tablero ?pos)) then
+                (progn
+                    ;; Verifica si la posición adyacente contiene una ficha del oponente
+                    (if (adyacente-a-oponente ?pos ?ultimoColor $?mapeo) then
+                        (progn
+                            ;; Si no está en los grupos cerrados, añade
+                            (if (not (member$ ?pos ?gruposCerrados)) then
+                                (bind ?gruposCerrados (insert$ ?gruposCerrados 1 ?pos))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
 
-        ; Se comprueban las 8 posiciones adyacentes a la posición actual:
-        ; IMPORTANTE:   debe haber una variable que mantenga la posicion actual como "anterior"
-        ;               para no entrar en bucles infinitos, etc.
-
-        ; IF alguna de esas posiciones está fuera del tablero
-            ; Continúa con la siguiente posición
-        
-        ; De entre todas, coger solo la que esté mas cerca de una ficha del otro color;
-        ; (esto probablemente requiera otro recorrido en anchura)
-
-        ; IF la ficha agregada es la inicial
-            ; la lista se ordena (a decidir como) para su futura comprobación
-            ; IF la lista no está en la lista de grupos cerrados
-                ; Se añade a la lista de grupos cerrados
-
-    ; END WHILE
-        
-    ; IF se ha formado un grupo (al menos una ficha del color opuesto encerrada)
-
-        ; Devuelve TRUE
-
-        ; Si no se ha formado un grupo, devuelve FALSE    
-
-;END FUNCTION
-
+    ;; Verifica si se ha formado un grupo
+    (if (> (length$ ?gruposCerrados) 0)
+        then (return TRUE)
+        else (return FALSE)
+    )
+)
 
 
 ;(deffunction comer(?pos $?mapeo))
@@ -120,6 +173,12 @@
         ; Se actualiza el tablero
 
 ; END FUNCTION
+
+
+
+
+
+; ///////////////////////////////////////////////////
 
 ; esta funcion tiene que comprobar si el ultimo movimiento jugado es legal. para ello seguramente
 ; usará la función grupo
@@ -133,6 +192,14 @@
 ; esta funcion tiene que comprobar si con el ultimo movimiento jugado, no existen mas movimientos legales
 ; para ello, se va a tener que comprobar cada vez que un jugador mueva, si el otro tiene al menos un movimiento
 ;(deffunction fin())
+
+;///////////////////////////////////////////////////
+
+
+
+
+
+;'Main' de la función
 
 (defrule inicio
     (not (tablero))
@@ -249,4 +316,3 @@
     (modify ?ident (activo TRUE))
     (modify ?j (activo FALSE))
 )
-
