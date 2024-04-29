@@ -68,30 +68,95 @@
 )
 ; //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-;(deffunction grupo_uwu(?pos ?$?mapeo)
+(deffunction grupo(?pos ?c ?$?mapeo)
 
     ; Obtiene el color de la última ficha colocada
     ; Con esto, podemos asignar a color1: x; color2: y; asi no repetimos code en ningun lado
+    (if (eq ?c b) then
+        (bind ?color1 b)
+        (bind ?color2 n)
+    )
+    (if (eq ?c n) then
+        (bind ?color1 n)
+        (bind ?color2 b)
+    )
 
     ; Inicializa un array para almacenar los grupos que se cierran:
     ; IMPORTANTE no existen multicampos de multicampos. Almacenar como un multicampo de strings
     ; despues, coger mediante nth$ y tratar cada string como un multicampo en si mismo
+    (bind $?grupos_cerrados (create$))  ; se agrega con: (bind ?g_c (insert$ ?g_c (+ (length$ ?g_c) 1) "nuevoString"))
+    (bind $?cola (create$ ?pos)) ; Inicializa una cola para el recorrido en anchura
+    (bind ?inicial ?pos) ; Guarda la posición inicial para comprobar si se ha cerrado el grupo
 
-    ; Inicializa una cola para el recorrido en anchura
+    (while (> (length$ ?queue) 0); WHILE la cola no esté vacía
 
-    ; WHILE la cola no esté vacía
+        (bind ?pos_actual (nth$ 1 ?cola)) ; Obtiene la primera posición de la cola
+        (bind ?x (mod ?pos_actual ?*tamanoFila*)) ; Obtiene la columna de la posición actual
+        (bind ?y (+ (/ ?pos_actual ?*tamanoFila*) 1)) ; Obtiene la fila de la posición actual
 
-        ; Obtiene la primera posición de la cola
+        (bind ?cola (delete$ ?cola 1 1)) ; Elimina la primera posición de la cola
 
-        ; Elimina la primera posición de la cola
+        ; Se obtienen las posiciones adyacentes a la posición actual
+        (bind $?adyacentes (create$))
+        (bind ?i 1)
+        (while (< i 8)
+            (switch ?i
+                case 1
+                    (if (< ?x ?*tamanoFila*) ; IF la posición no está en el borde derecho
+                        (bind $?adyacentes (insert$ $?adyacentes (length$ $?adyacentes) (+ ?pos_actual 1))) ; Obtiene la posición de la derecha
+                    )
+                case 2
+                    (if (> ?x 1) ; IF la posición no está en el borde izquierdo
+                        (bind $?adyacentes (insert$ $?adyacentes (length$ $?adyacentes) (- ?pos_actual 1))) ; Obtiene la posición de la izquierda
+                    )
+                case 3
+                    (if (< ?y ?*tamanoColumna*) ; IF la posición no está en el borde inferior
+                        (bind $?adyacentes (insert$ $?adyacentes (length$ $?adyacentes) (+ ?pos_actual ?*tamanoFila*))) ; Obtiene la posición de abajo
+                    )
+                case 4
+                    (if (> ?y 1) ; IF la posición no está en el borde superior
+                        (bind $?adyacentes (insert$ $?adyacentes (length$ $?adyacentes) (- ?pos_actual ?*tamanoFila*))) ; Obtiene la posición de arriba
+                    )
+                case 5
+                    (if (and (< ?x ?*tamanoFila*) (< ?y ?*tamanoColumna*)) ; IF la posición no está en el borde derecho ni inferior
+                        (bind $?adyacentes (insert$ $?adyacentes (length$ $?adyacentes) (+ ?pos_actual (+ ?*tamanoFila* 1)))) ; Obtiene la posición de la diagonal inferior derecha
+                    )
+                case 6
+                    (if (and (> ?x 1) (< ?y ?*tamanoColumna*)) ; IF la posición no está en el borde izquierdo ni inferior
+                        (bind $?adyacentes (insert$ $?adyacentes (length$ $?adyacentes) (- ?pos_actual (+ ?*tamanoFila* 1)))) ; Obtiene la posición de la diagonal inferior izquierda
+                    )
+                case 7
+                    (if (and (< ?x ?*tamanoFila*) (> ?y 1)) ; IF la posición no está en el borde derecho ni superior
+                        (bind $?adyacentes (insert$ $?adyacentes (length$ $?adyacentes) (+ ?pos_actual (- ?*tamanoFila* 1)))) ; Obtiene la posición de la diagonal superior derecha
+                    )
+                case 8
+                    (if (and (> ?x 1) (> ?y 1)) ; IF la posición no está en el borde izquierdo ni superior
+                        (bind $?adyacentes (insert$ $?adyacentes (length$ $?adyacentes) (- ?pos_actual (- ?*tamanoFila* 1)))) ; Obtiene la posición de la diagonal superior izquierda
+                    )      
+            )
+            (bind ?i (+ ?i 1))
+        )
 
         ; Se comprueban las 8 posiciones adyacentes a la posición actual:
         ; IMPORTANTE:   debe haber una variable que mantenga la posicion actual como "anterior"
         ;               para no entrar en bucles infinitos, etc.
+        (bind ?i 1)
+        (while (< ?i length$ $?adyacentes)
+            
+            (bind ?pos_actual (nth$ ?i $?adyacentes))
 
-        ; IF alguna de esas posiciones está fuera del tablero
-            ; Continúa con la siguiente posición
-        
+            ; Comprobar que no vas a comprobar la posicion de la que vienes
+            (if (eq ?pos_actual ?anterior) ; IF la posición adyacente es la anterior
+                (bind ?i (+ ?i 1)) ; Se salta la comprobación
+            )
+
+
+            (bind ?est (nth$ ?pos_actual $?mapeo))
+            (if (eq ?est ?color1) ; IF la posición adyacente es del mismo color
+                (bind $?cola (insert$ ?cola (length$ ?cola) ?pos_actual)) ; Se añade a la cola
+            )
+            (bind ?i (+ ?i 1))
+        )
         ; De entre todas, coger solo la que esté mas cerca de una ficha del otro color;
         ; (esto probablemente requiera otro recorrido en anchura)
 
@@ -107,19 +172,21 @@
         ; Devuelve TRUE
 
         ; Si no se ha formado un grupo, devuelve FALSE    
+    )
+    (return FALSE)
 
-;END FUNCTION
+) ; END FUNCTION
 
 
+(deffunction comer(?pos ?c $?mapeo)
 
-;(deffunction comer(?pos $?mapeo))
+    (if (grupo(?pos ?c $?mapeo)); llamada a grupo ; IF grupo = TRUE
+        (bind $?mapeo eliminar(?pos $?mapeo)) ; Se eliminan las blancas que estén dentro del grupo
+    )
+    
+    (return $?mapeo) ; Devuelve el tablero actualizado
 
-    ; llamada a grupo
-    ; IF grupo = TRUE
-        ; Se eliminan las blancas que estén dentro del grupo
-        ; Se actualiza el tablero
-
-; END FUNCTION
+) ; END FUNCTION
 
 ; esta funcion tiene que comprobar si el ultimo movimiento jugado es legal. para ello seguramente
 ; usará la función grupo
@@ -227,15 +294,17 @@
             (if (eq ?c b) then 
                 (retract ?tab)
                 (bind $?mapeo (replace$ $?mapeo ?pos ?pos b)) 
-                (assert (tablero (matriz $?mapeo))) 
-                (imprimir $?mapeo)
 
             )
             (if (eq ?c n) then
                 (retract ?tab)
                 (bind $?mapeo (replace$ $?mapeo ?pos ?pos n)) 
-                (assert (tablero (matriz $?mapeo))) ; TODO colocar ficha negra
             )
+            
+            ; (bind $?mapeo (comer ?pos ?c $?mapeo))
+            (assert (tablero (matriz $?mapeo)))
+            (imprimir $?mapeo)
+
             (bind ?aux FALSE)
         else 
             (printout t "Movimiento invalido" crlf)
