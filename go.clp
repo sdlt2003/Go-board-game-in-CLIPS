@@ -20,52 +20,6 @@
 
 ; //////////////////////// Funciones (meter debajo de uwu_grupo)
 
-; Función para determinar si una posición está fuera de los límites del tablero
-(deffunction fuera-de-tablero (?pos)
-    (bind ?x (mod (- ?pos 1) ?*tamanoFila*))
-    (bind ?y (div (- ?pos 1) ?*tamanoFila*))
-    (return (or (< ?x 0) (>= ?x ?*tamanoFila*)
-                (< ?y 0) (>= ?y ?*tamanoColumna*)))
-)
-
-
-(deffunction obtener-adyacentes (?pos)
-    (bind ?x (mod (- ?pos 1) ?*tamanoFila*))
-    (bind ?y (div (- ?pos 1) ?*tamanoFila*))
-    (bind ?adyacentes (create$))
-
-    (loop-for-count (?dx -1 1) do
-        (loop-for-count (?dy -1 1) do
-            (if (or (neq ?dx 0) (neq ?dy 0)) 
-                then
-                (progn
-                    (bind ?nx (+ ?x ?dx))
-                    (bind ?ny (+ ?y ?dy))
-                    (if (and (>= ?nx 0) (< ?nx ?*tamanoFila*)
-                             (>= ?ny 0) (< ?ny ?*tamanoColumna*))
-                        then
-                        (bind ?nPos (+ 1 (+ (* ?ny ?*tamanoFila*) ?nx)))
-                        (if (> (length$ ?adyacentes) 0)
-                            then (bind ?adyacentes (insert$ ?adyacentes (length$ ?adyacentes) ?nPos))
-                            else (bind ?adyacentes (create$ ?nPos))
-                        )
-                    )
-                )
-            )
-        )
-    )
-    (return ?adyacentes)
-)
-
-
-(deffunction adyacente-a-oponente (?pos ?ultimoColor $?mapeo)
-
-    (bind ?contenido (nth$ ?pos $?mapeo))
-    (return (neq ?contenido ?ultimoColor))
-)
-
-; //////////////////////////////
-
 ; Las siguientes funciones nos las daban en egela. Están modificadas para que se adapten a nuestro juego. Sirven para representar visualmente el tablero
 ; //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 (deffunction generarLineas (?x)
@@ -115,36 +69,108 @@
       (generarLineas ?*tamanoFila*)
     )
 )
+
 ; //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+; Función para determinar si una posición está fuera de los límites del tablero
+(deffunction fuera-de-tablero-xy (?x ?y)
+  (if (or (<= ?x 0) (<= ?y 0) (>= ?x ?*tamanoFila*) (>= ?y ?*tamanoColumna*))
+      then (return TRUE)
+      else (return FALSE)
+  )
+)
 
-(deffunction grupo_uwu (?pos $?mapeo)
-    (bind ?ultimoColor (nth$ (- (length$ $?mapeo) 1) $?mapeo))
-    (bind ?gruposRodeados (create$))
-    (bind ?cola (create$ ?pos))
+(deffunction coord-a-pos (?x ?y)
+    (return (+ 1 (+ (* ?y ?*tamanoFila*) ?x)))
+)
 
-    (printout t "haciendo uwu para uwu: " ?pos " Color: " ?ultimoColor crlf)
+(deffunction fuera-de-tablero-pos (?pos ?x ?y)
+  (if (or (<= ?x 0) (<= ?y 0) (>= ?x ?*tamanoFila*) (>= ?y ?*tamanoColumna*)
+          (not (= ?pos (coord-a-pos ?x ?y))) ; Chequeo adicional para el tercer parámetro
+      )
+      then (return TRUE)
+      else (return FALSE)
+  )
+)
 
-    (while (neq (length$ ?cola) 0)
-        (bind ?actual (nth$ 1 ?cola))
-        (bind ?cola (rest$ ?cola))
-        (bind ?posicionesAdyacentes (obtener-adyacentes ?actual))
 
-        (foreach ?pos ?posicionesAdyacentes
-            (if (and (not (fuera-de-tablero ?pos)) (adyacente-a-oponente ?pos ?ultimoColor $?mapeo))
+(deffunction pos-a-coord (?pos)
+    (bind ?x (mod ?pos ?*tamanoFila*))
+    (bind ?y (+ 1 (div ?pos ?*tamanoFila*)))
+    (return (create$ ?x ?y))
+)
+
+
+
+(deffunction adyacente-a-oponente (?pos ?ultimoColor $?mapeo)
+    (bind ?contenido (nth$ ?pos $?mapeo))
+    (return (neq ?contenido ?ultimoColor))
+)
+
+
+(deffunction obtener-adyacentes (?pos ?color1 $?mapeo)
+    (bind ?adyacentes (create$))                ; inicializamos lista
+    (bind ?coordenadas (pos-a-coord ?pos))
+    (bind ?x (nth$ 1 ?coordenadas))
+    (bind ?y (nth$ 2 ?coordenadas))
+    (loop-for-count (?dx -1 1) do               ; creamos coordenadas locales para poder recorrer los adyacentes
+        (loop-for-count (?dy -1 1) do           ; de forma sencilla
+            (if (or (neq ?dx 0) (neq ?dy 0))    ; excluimos la posición actual
                 then
                 (progn
-                    (printout t "grupo rodeado: " (implode$ ?gruposRodeados) crlf)
+                    (bind ?nx (+ ?x ?dx))       ; calculamos la posicion real
+                    (bind ?ny (+ ?y ?dy))
+                    (if (not (fuera-de-tablero-xy ?nx ?ny)) then   ; si no está fuera del tablero
+                        (bind ?nPos (coord-a-pos ?nx ?ny))
+                        (bind ?est (nth$ ?nPos $?mapeo))
+                        (if (eq ?est ?color1) then              ; si es del color del jugador
+                            (bind ?adyacentes (insert$ ?adyacentes (+ (length$ ?adyacentes) 1) ?nPos))
+                        )
+                    )
+                )
+            )
+        )
+    )
+    (return ?adyacentes)
+)
+
+
+
+(deffunction grupo (?pos ?c $?mapeo)
+    ; Obtiene el color de la última ficha colocada
+    (bind ?color1 (if (eq ?c b) then b else n))
+    (bind ?color2 (if (eq ?c b) then n else b))
+
+    ; Inicializa un array para almacenar los grupos que se cierran
+    (bind ?gruposRodeados (create$))
+    (bind ?cola (create$ ?pos))  ; Inicializa una cola para el recorrido en anchura
+
+    (while (neq (length$ ?cola) 0)
+        (bind ?actual (nth$ 1 ?cola))  ; Obtiene la primera posición de la cola
+        (bind ?cola (rest$ ?cola))  ; Elimina la primera posición de la cola
+
+        ; Obtiene las posiciones adyacentes a la actual
+        (bind ?posicionesAdyacentes (obtener-adyacentes ?actual ?color2 $?mapeo))
+
+        (foreach ?pos ?posicionesAdyacentes
+            ; Asegúrate de que pos-a-coord devuelve un multifield y accede correctamente
+            (bind ?coordenadas (pos-a-coord ?pos))
+            (bind ?x (nth$ 1 ?coordenadas))
+            (bind ?y (nth$ 2 ?coordenadas))
+
+            (if (not (fuera-de-tablero-pos ?pos ?x ?y))
+                then
+                (progn
                     (if (not (member$ ?pos ?gruposRodeados))
-                        then
-                        (bind ?gruposRodeados (insert$ ?gruposRodeados 1 ?pos))
+                        then (bind ?gruposRodeados (insert$ ?gruposRodeados 1 ?pos))
                     )
                 )
             )
         )
     )
 
+    ; Devuelve los grupos rodeados o FALSE si no hay ninguno
     (if (> (length$ ?gruposRodeados) 0)
         then (return ?gruposRodeados)
         else (return FALSE)
@@ -153,14 +179,12 @@
 
 
 
-
-(deffunction comer (?pos $?mapeo)
-    (bind ?resultados (grupo_uwu ?pos $?mapeo))
-    (if (neq ?resultados FALSE)
+(deffunction comer (?pos ?c $?mapeo)
+    (bind ?res (grupo ?pos ?c $?mapeo))
+    (if (neq ?res FALSE) ; Si 'grupo' devuelve un grupo de fichas rodeadas
         then
         (progn
-            (printout t "Fichas a eliminar en las posiciones: " (implode$ ?resultados) crlf)
-            (foreach ?p ?resultados
+            (foreach ?p ?res
                 (bind $?mapeo (replace$ $?mapeo ?p ?p 0))
             )
             (return $?mapeo)
@@ -169,10 +193,6 @@
         (return FALSE)
     )
 )
-
-
-
-
 
 
 ; ///////////////////////////////////////////////////
