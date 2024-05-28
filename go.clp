@@ -311,7 +311,6 @@
                     (progn
                         (retract ?tab)
                         (assert (tablero (matriz ?nuevoMapa)))
-                        (printout t "Fichas comidas, actualizando tablero." crlf)
                         (imprimir ?nuevoMapa)
                     )
                 )
