@@ -16,7 +16,6 @@
    (slot activo)
 )
 
-
 (deffunction generarLineas (?x)
   (printout t crlf)
   (printout t "      |")
@@ -34,7 +33,6 @@
   (printout t "     |")
   (printout t crlf)
 )
-
 
 (deffunction imprimir ($?mapeo)
     (printout t crlf)
@@ -84,15 +82,6 @@
     ?adyacentes
 )
 
-
-
-
-
-
-
-
-
-
 (deffunction grupo (?fila ?columna ?color ?matriz ?visitados)
     (printout t "Entrando en grupo con ?fila: " ?fila " ?columna: " ?columna crlf)
     (bind ?adyacentes (obtener-adyacentes ?fila ?columna ?matriz))
@@ -118,15 +107,6 @@
     (create$ ?grupo ?visitados)
 )
 
-
-
-
-
-
-
-
-
-
 (deffunction esta-rodeado (?grupo ?color ?matriz)
     (bind ?rodeado TRUE)
     (bind ?oponente (if (eq ?color b) then n else b))
@@ -142,7 +122,6 @@
     ?rodeado
 )
 
-
 (deffunction eliminar-grupo (?grupo ?matriz)
     (foreach ?coord ?grupo
         (bind ?indice (+ (* ?*tamanoFila* (- (nth$ 0 ?coord) 1)) (nth$ 1 ?coord)))
@@ -150,8 +129,6 @@
     )
     ?matriz
 )
-
-
 
 (deffunction comer (?fila ?columna ?color ?matriz)
     (printout t "Entrando en comer con ?fila: " ?fila " ?columna: " ?columna " ?color: " ?color crlf)
@@ -165,14 +142,6 @@
     )
     ?matriz
 )
-
-
-
-
-
-
-
-
 
 (defrule actualizar-tablero
     ?jugador-n <- (jugador (color n) (activo TRUE))
@@ -241,13 +210,6 @@
     (modify ?ident (activo TRUE))
     (modify ?j (activo FALSE))
 )
-
-
-
-
-
-
-
 
 (defrule inicio
     (not (tablero))
