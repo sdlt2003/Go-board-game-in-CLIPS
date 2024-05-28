@@ -16,6 +16,16 @@
    (slot activo)
 )
 
+(deffunction union$ (?list1 ?list2)
+  (bind ?result ?list1)
+  (foreach ?item ?list2
+    (if (not (member$ ?item ?result)) then
+      (bind ?result (create$ $?result ?item))
+    )
+  )
+  ?result
+)
+
 (deffunction generarLineas (?x)
   (printout t crlf)
   (printout t "      |")
