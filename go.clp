@@ -1,7 +1,6 @@
 ; Definición basica de tablero y jugador
 
-(defglobal ?*tamanoFila* = 0)
-(defglobal ?*tamanoColumna* = 0)
+(defglobal ?*tamano* = 0)
 
 (deftemplate tablero
     (slot id)
@@ -44,18 +43,18 @@
 (deffunction imprimir ($?mapeo)
     (printout t crlf)
     (printout t crlf)
-    (loop-for-count (?i 0 ?*tamanoFila*) do
+    (loop-for-count (?i 0 ?*tamano*) do
       (if (= ?i 0) then
       (printout t "       ")
       else
       (printout t "  "?i "   "))
     )
-    (generarLineas ?*tamanoFila*)
-    (loop-for-count (?fila 1 ?*tamanoFila* ) do
-      (generarLineas2 ?*tamanoFila*)
+    (generarLineas ?*tamano*)
+    (loop-for-count (?fila 1 ?*tamano* ) do
+      (generarLineas2 ?*tamano*)
       (printout t "   " ?fila "  |" )
-      (loop-for-count (?columna 1 ?*tamanoFila*) do
-            (bind ?contenido (nth$  (+ (* ?*tamanoFila* (- ?fila 1)) ?columna) $?mapeo))
+      (loop-for-count (?columna 1 ?*tamano*) do
+            (bind ?contenido (nth$  (+ (* ?*tamano* (- ?fila 1)) ?columna) $?mapeo))
             (if (eq ?contenido b) then
                 (printout t  "  B  |")
             )
@@ -66,7 +65,7 @@
 				(printout t "     |")
 			)
       )
-      (generarLineas ?*tamanoFila*)
+      (generarLineas ?*tamano*)
     )
 )
 
@@ -74,21 +73,24 @@
 
 
 ; Función para determinar si una posición está fuera de los límites del tablero
-(deffunction fuera-de-tablero (?pos, ?x, ?y)
-    (if (or (<= ?x 0) (<= ?y 0) (>= ?x ?*tamanoFila*) (>= ?y ?*tamanoColumna*))
-        then (return TRUE)
-        else (return FALSE)
+(deffunction fuera-de-tablero (?x ?y)
+    (if (or (< ?x 1) (< ?y 1) (> ?x ?*tamano*) (> ?y ?*tamano*))
+        then
+        (return TRUE)
+        else
+        (return FALSE)
     )
 )
 
 (deffunction pos-a-coord (?pos)
-    (bind ?x (mod ?pos ?*tamanoFila*))
-    (bind ?y (+ 1 (div ?pos ?*tamanoFila*)))
-    (return (create$ ?x ?y))
+    (bind ?x (mod (- ?pos 1) ?*tamano*)) ; Ajustar a índice basado en 1
+    (bind ?y (+ 1 (div (- ?pos 1) ?*tamano*)))
+    (return (create$ (+ ?x 1) ?y)) ; Ajustar la coordenada x para ser 1-basada
 )
 
+
 (deffunction coord-a-pos (?x ?y)
-    (return (+ 1 (+ (* ?y ?*tamanoFila*) ?x)))
+    (return (+ (* (- ?y 1) ?*tamano*) ?x))
 )
 
 
@@ -98,27 +100,69 @@
 )
 
 
-(deffunction obtener-adyacentes (?pos ?color1 $?mapeo)
+; c     := color de las fichas que comen
+(deffunction rodea (?grupo ?c $?mapeo)
+    (bind ?rodea FALSE)
+    (foreach ?pos ?grupo
+        (bind ?coords (pos-a-coord ?pos))
+        (bind ?x (nth$ 1 ?coords))
+        (bind ?y (nth$ 2 ?coords))
+        
+        ; Comprueba las posiciones adyacentes (norte, sur, este, oeste)
+        (bind ?norte (if (not (fuera-de-tablero ?x (- ?y 1)))
+                        then (coord-a-pos ?x (- ?y 1))
+                        else f))
+        (bind ?sur (if (not (fuera-de-tablero ?x (+ ?y 1)))
+                      then (coord-a-pos ?x (+ ?y 1))
+                      else f))
+        (bind ?este (if (not (fuera-de-tablero (+ ?x 1) ?y))
+                       then (coord-a-pos (+ ?x 1) ?y)
+                       else f))
+        (bind ?oeste (if (not (fuera-de-tablero (- ?x 1) ?y))
+                       then (coord-a-pos (- ?x 1) ?y)
+                       else f))
+        ;(printout t "Coordenadas norte, sur, este, oeste: " ?norte " " ?sur " " ?este " " ?oeste crlf)
+        
+        ; Verifica si la ficha en la posición ?pos está rodeada por fichas del color aliado o por límites del tablero
+        (if (and (or (eq ?norte f) (eq (nth$ ?norte $?mapeo) ?c))
+                (or (eq ?sur f) (eq (nth$ ?sur $?mapeo) ?c))
+                (or (eq ?este f) (eq (nth$ ?este $?mapeo) ?c))
+                (or (eq ?oeste f) (eq (nth$ ?oeste $?mapeo) ?c)))
+            then
+            (bind ?rodea TRUE)
+        )
+    )
+    ;(printout t "Rodea: " ?rodea crlf)
+    (return ?rodea)
+)
 
-    (bind ?adyacentes (create$))                ; inicializamos lista
-    (bind ?x (nth$ (pos-a-coord ?pos) 1))       ; obtenemos la coordenada x
-    (bind ?y (nth$ (pos-a-coord ?pos) 2))       ; obtenemos la coordenada y
-    (loop-for-count (?dx -1 1) do               ; creamos coordenadas locales para poder recorrer los adyacentes
-        (loop-for-count (?dy -1 1) do           ; de forma sencilla
+; pos    := posición de la ultima ficha colocada
+; c      := color de las fichas adyacentes que estás buscando
+; $?mapeo:= tablero (basicamente)
+(deffunction obtener-adyacentes (?pos ?c $?mapeo)
+    (bind ?adyacentes (create$))   ; inicializamos 
+    ;(printout t "Posición de la ficha colocada (antes de pasar por pos-a-coord): " ?pos crlf)
+    (bind $?pos (pos-a-coord ?pos))
+    ;(printout t "Posición de la ficha colocada (después de pasar por pos-a-coord): " $?pos crlf)
+    (bind ?x (nth$ 1 $?pos))       ; obtenemos la coordenada x
+    (bind ?y (nth$ 2 $?pos))       ; obtenemos la coordenada y
+    (loop-for-count (?dy -1 1) do               ; creamos coordenadas locales para poder recorrer los adyacentes
+        (loop-for-count (?dx -1 1) do           ; de forma sencilla
             (if (or (neq ?dx 0) (neq ?dy 0))    ; excluimos la posición actual 
                 then
                 (progn
-                    (bind ?nx (+ ?x ?dx))       ; calculamos la posicion real
+                    (bind ?nx (+ ?x ?dx))       ; calculamos la posicion real del adyacente que estamos calculando
                     (bind ?ny (+ ?y ?dy))    
                     (if (not (fuera-de-tablero ?nx ?ny)) then   ; si no está fuera del tablero
+                        ;(printout t "Coordenadas del adyacente con coordenadas locales " ?dx " " ?dy ": " ?nx " " ?ny crlf) 
                         (bind ?nPos (coord-a-pos ?nx ?ny))
+                        ;(printout t "Posición real del adyacente: " ?nPos crlf)
                         (bind ?est (nth$ ?nPos $?mapeo))
-                        (if (eq ?est ?color1) then              ; si es del color del jugador
-                            (if (> (length$ ?adyacentes) 0) then
-                                then (bind ?adyacentes (insert$ ?adyacentes (length$ ?adyacentes) ?nPos))
-                                else (bind ?adyacentes (create$ ?nPos))
-                            )
+                        (if (eq ?est ?c) then              ; si es del color del jugador
+                            (bind ?adyacentes (create$ ?adyacentes ?nPos))  ; lo añadimos a la lista de adyacentes
                         )
+                    else 
+                        ;(printout t "Adyacente analizando fuera de tablero" crlf)
                     )
                 )
             )
@@ -128,74 +172,81 @@
 )
 
 
-
-(deffunction grupo(?pos ?c ?$?mapeo)
-    ; Obtiene el color de la última ficha colocada
-    ; Con esto, podemos asignar a color1: x; color2: y; asi no repetimos code en ningun lado
-    (if (eq ?c b) then
-        (bind ?color1 b)
+(deffunction grupo (?pos ?color1 $?mapeo)
+    ; Inicializa el color del jugador y el oponente
+    (if (eq ?color1 b) then
         (bind ?color2 n)
-    )
-    (if (eq ?c n) then
-        (bind ?color1 n)
+    else
         (bind ?color2 b)
     )
 
-    ; Inicializa un array para almacenar los grupos que se cierran:
-    ; IMPORTANTE no existen multicampos de multicampos. Almacenar como un multicampo de strings
-    ; despues, coger mediante nth$ y tratar cada string como un multicampo en si mismo
-    (bind ?gruposRodeados (create$))    ; se agrega con: (bind ?g_c (insert$ ?g_c (+ (length$ ?g_c) 1) "nuevoString"))
-    (bind ?cola (create$ ?pos))         ; Inicializa una cola para el recorrido en anchura
-    (bind ?inicial ?pos)                ; Guarda la posición inicial para comprobar si se ha cerrado el grupo
+    ;(printout t "Obteniendo fichas enemigas adyacentes a la ficha colocada..." crlf)
+    (bind ?grupoEnemigo (obtener-adyacentes ?pos ?color2 $?mapeo))
+    ;(printout t "Adyacentes: " ?grupoEnemigo crlf)
 
-    (while (neq (length$ ?cola) 0)      ; Mientras haya elementos en la cola
-        (bind ?actual (nth$ 1 ?cola))   ; Obtiene la primera posición de la cola
-        (bind ?cola (rest$ ?cola))      ; Elimina la primera posición de la cola
-        (bind ?posicionesAdyacentes (obtener-adyacentes ?actual))   ;  Obtiene las posiciones adyacentes a la actual
-
-        (foreach ?pos ?posicionesAdyacentes  ; Por cada posición adyacente
-            (bind ?x (nth$ (pos-a-coord ?pos) 1))   ; Obtiene la coordenada x
-            (bind ?y (nth$ (pos-a-coord ?pos) 2))   ; Obtiene la coordenada y
-            (if (not (fuera-de-tablero ?pos ?x ?y))
-                then
-                (progn
-                    (if (not (member$ ?pos ?gruposRodeados))
-                        then
-                        (bind ?gruposRodeados (insert$ ?gruposRodeados 1 ?pos))
-                    )
-                )
+    (if (neq (length$ ?grupoEnemigo) 0)
+        then
+        (progn
+            ; Verifica si las fichas capturables están rodeadas por el grupo
+            ;(printout t "Verificando si se come alguna ficha..." crlf)
+            (bind ?res (rodea ?grupoEnemigo ?color1 $?mapeo))
+            (if (neq ?res FALSE)
+                then 
+                    ;(printout t "Se debe(n) comer ficha(s)" crlf)
+                    (return ?grupoEnemigo)
+                else 
+                    ;(printout t "No se debe comer nada" crlf)
+                    (return FALSE)
             )
         )
     )
-
-    (if (> (length$ ?gruposRodeados) 0)
-        then (return ?gruposRodeados)
-        else (return FALSE)
-    )
+    (return FALSE)
 )
 
 
-(deffunction comer (?pos $?mapeo)
-    (bind ?res (grupo ?pos $?mapeo))
-    (if (neq ?res FALSE) ; IF grupo devuelve un grupo de fichas rodeadas
+
+(deffunction comer (?pos ?c $?mapeo)
+    ;(printout t "Entrando en grupo para ver si tocamos alguna ficha adyacente enemiga" crlf)
+    (bind ?res (grupo ?pos ?c $?mapeo)) ; tengo que conseguir que res sea una lista de posiciones de fichas a eliminar
+    (if (neq ?res FALSE) ; IF no es FALSE, entonces 
         then
         (progn
+            ;(printout t "Se van a eliminar las fichas de las siguientes posiciones: " ?res crlf)
             (foreach ?p ?res
                 (bind $?mapeo (replace$ $?mapeo ?p ?p 0))
             )
             (return $?mapeo)
         )
         else
+        ;(printout t "No se elimina ninguna ficha" crlf)
         (return FALSE)
     )
 )
 
 
-; ///////////////////////////////////////////////////
-
 ; esta funcion tiene que comprobar si el ultimo movimiento jugado es legal. para ello seguramente
 ; usará la función grupo
 ;(deffunction verificar())
+(deffunction verificar (?pos ?c $?mapeo)
+    (if (eq ?c b)
+    then 
+        (bind ?c1 b)
+        (bind ?c2 n)
+    else 
+        (bind ?c1 n)
+        (bind ?c2 b)
+    )
+
+    (if (neq (rodea ?pos ?c2 $?mapeo) FALSE)
+        then
+        (return FALSE)
+        else
+        (return TRUE)
+    )
+)
+; ///////////////////////////////////////////////////
+
+
 
 ; esta funcion tiene que evaluar si para el jugador dado por parámetro, le quedan movimientos legales
 ; para ello, para cada posicion del tablero que este libre, se tiene que ver si se puede colocar una ficha
@@ -208,10 +259,6 @@
 
 ;///////////////////////////////////////////////////
 
-
-
-
-
 ;'Main' de la función
 
 (defrule inicio
@@ -219,18 +266,18 @@
 =>  
     
     (printout t "Inserte el tamaño (A) del tablero (AxA). Escoga entre 4, 6 u 9): " crlf)
-    (bind ?tamano (read))
+    (bind ?aux_t (read))
 
     ; inicializacion de tablero
-    (bind ?*tamanoFila* ?tamano)
-    (bind ?*tamanoColumna* ?tamano)
-    (if (eq ?tamano 4) then
+    (bind ?*tamano* ?aux_t)
+    (bind ?*tamano* ?aux_t)
+    (if (eq ?aux_t 4) then
         (assert (tablero (id 0) (padre -1) (nivel 0) (matriz 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
     )
-    (if (eq ?tamano 6) then
+    (if (eq ?aux_t 6) then
         (assert (tablero (id 0) (padre -1) (nivel 0) (matriz 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
     )
-    (if (eq ?tamano 9) then
+    (if (eq ?aux_t 9) then
         (assert (tablero (id 0) (padre -1) (nivel 0) (matriz 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
     ) 
 
@@ -281,45 +328,64 @@
     )
 )
 
+
 (defrule mov
     ?j <- (jugador (id ?i) (tipo h) (color ?c) (puntos ?puntos) (activo TRUE))
     ?tab <- (tablero (matriz $?mapeo))
 =>
-    (printout t "Tablero: " crlf)
-    (imprimir $?mapeo)
-
     (bind ?aux TRUE)
     (while ?aux do
         (printout t (if (eq ?i 1) then "Jugador 1, " else "Jugador 2, ") "ingresa tu movimiento (x y):")
         (bind ?x (read))
         (bind ?y (read))
-        (bind ?pos (+ (* ?*tamanoFila* (- ?y 1)) ?x))
+        (bind ?pos (+ (* ?*tamano* (- ?y 1)) ?x))
+        (printout t "Posicion jugada: " ?pos crlf)
 
+        (printout t "Verificando si el movimiento es válido..." crlf)
+        (bind $?posm (create$ ?pos))    ; "rodea" espera una variable multifield
+        (bind ?valido (verificar ?posm ?c $?mapeo))
         (bind ?est (nth$ ?pos $?mapeo))
-        (if (eq ?est 0)
+        (if (and (and ?valido (eq ?est 0)) (and (<= ?x ?*tamano*) (<= ?y ?*tamano*)))
             then
             (progn
+                (printout t "" crlf)
+                (printout t "----------------------------------------" crlf)
+                (printout t "" crlf)
+
                 (bind $?mapeo (replace$ $?mapeo ?pos ?pos (if (eq ?c b) then b else n)))
                 (retract ?tab)
                 (assert (tablero (matriz $?mapeo)))
-                (imprimir $?mapeo)
 
                 ; Llamar a comer para verificar y eliminar fichas rodeadas
-                (bind ?nuevoMapa (comer ?pos $?mapeo))
+                ;(printout t "Entrando en comer para verificar y eliminar fichas rodeadas" crlf)
+                (bind ?nuevoMapa (comer ?pos ?c $?mapeo))
+                ;(printout t "Saliendo de comer. Contenido devuelto: " ?nuevoMapa crlf)
                 (if (neq ?nuevoMapa FALSE)
                     then
                     (progn
                         (retract ?tab)
                         (assert (tablero (matriz ?nuevoMapa)))
+                        (printout t "Fichas comidas, actualizando tablero." crlf)
                         (imprimir ?nuevoMapa)
                     )
                 )
                 (bind ?aux FALSE)
             )
-            else
+        
+        else 
             (printout t "Movimiento invalido. Intente de nuevo." crlf)
+            (printout t "----------------------------------------" crlf)
+            (printout t " " crlf)
         )
     )
+    (if (eq ?nuevoMapa FALSE)
+            then
+            (progn
+                (printout t "Tablero después del movimiento del jugador actual: " crlf)
+                (imprimir $?mapeo)
+            )
+    )
+
 
     ;; Cambiar la activación del jugador
     (do-for-fact ((?juga jugador)) (eq ?juga:activo FALSE)
@@ -327,4 +393,6 @@
     )
     (modify ?ident (activo TRUE))
     (modify ?j (activo FALSE))
+
+
 )
