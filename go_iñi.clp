@@ -16,6 +16,18 @@
    (slot activo)
 )
 
+;-----------------------------------------------------------
+
+(deffunction union$ (?list1 ?list2)
+  (bind ?result ?list1)
+  (foreach ?item ?list2
+    (if (not (member$ ?item ?result)) then
+      (bind ?result (create$ $?result ?item))
+    )
+  )
+  ?result
+)
+
 (deffunction generarLineas (?x)
   (printout t crlf)
   (printout t "      |")
@@ -63,23 +75,25 @@
     )
 )
 
+
 (deffunction obtener-adyacentes (?fila ?columna ?matriz)
     (bind ?adyacentes (create$))
-    ; norte
+    (printout t "Obteniendo adyacentes para ?fila: " ?fila " ?columna: " ?columna crlf)
     (if (and (> ?fila 1) (neq (nth$ (+ (* ?*tamanoFila* (- ?fila 2)) ?columna) ?matriz) nil)) then
-        (bind ?adyacentes (create$ (create$ (- ?fila 1) ?columna) $?adyacentes)))
-    ; sur
+        (bind ?adyacentes (create$ (create$ (- ?fila 1) ?columna) $?adyacentes))
+        (printout t "Adyacente encontrado (norte): " (- ?fila 1) " " ?columna crlf))
     (if (and (< ?fila ?*tamanoFila*) (neq (nth$ (+ (* ?*tamanoFila* ?fila) ?columna) ?matriz) nil)) then
-        (bind ?adyacentes (create$ (create$ (+ ?fila 1) ?columna) $?adyacentes)))
-    ; este
+        (bind ?adyacentes (create$ (create$ (+ ?fila 1) ?columna) $?adyacentes))
+        (printout t "Adyacente encontrado (sur): " (+ ?fila 1) " " ?columna crlf))
     (if (and (> ?columna 1) (neq (nth$ (+ (* ?*tamanoFila* (- ?fila 1)) (- ?columna 1)) ?matriz) nil)) then
-        (bind ?adyacentes (create$ (create$ ?fila (- ?columna 1)) $?adyacentes)))
-    ; oeste
+        (bind ?adyacentes (create$ (create$ ?fila (- ?columna 1)) $?adyacentes))
+        (printout t "Adyacente encontrado (oeste): " ?fila " " (- ?columna 1) crlf))
     (if (and (< ?columna ?*tamanoColumna*) (neq (nth$ (+ (* ?*tamanoFila* (- ?fila 1)) (+ ?columna 1)) ?matriz) nil)) then
-        (bind ?adyacentes (create$ (create$ ?fila (+ ?columna 1)) $?adyacentes)))
+        (bind ?adyacentes (create$ (create$ ?fila (+ ?columna 1)) $?adyacentes))
+        (printout t "Adyacente encontrado (este): " ?fila " " (+ ?columna 1) crlf))
+    (printout t "Adyacentes encontrados: " ?adyacentes crlf)
     ?adyacentes
 )
-
 
 (deffunction grupo (?fila ?columna ?color ?matriz ?visitados)
     (printout t "Entrando en grupo con ?fila: " ?fila " ?columna: " ?columna crlf)
@@ -87,39 +101,60 @@
     (printout t "Adyacentes: " ?adyacentes crlf)
     (bind ?grupo (create$ (create$ ?fila ?columna)))
     (bind ?visitados (create$ (create$ ?fila ?columna) $?visitados))
-    (foreach ?ady ?adyacentes
-        (bind ?coord ?ady)
+    (bind ?num-adyacentes (length$ ?adyacentes))
+    (bind ?i 1)
+    (while (<= ?i ?num-adyacentes)
+        (bind ?fila-ady (nth$ ?i ?adyacentes))
+        (bind ?columna-ady (nth$ (+ ?i 1) ?adyacentes))
+        (bind ?coord (create$ ?fila-ady ?columna-ady))
         (printout t "Procesando adyacente: " ?coord crlf)
-        (printout t "nth$ 1 de ?coord: " (nth$ 1 ?coord) crlf)
-        (printout t "nth$ 2 de ?coord: " (nth$ 2 ?coord) crlf)
-        (if (and (eq (nth$ (+ (* ?*tamanoFila* (- (nth$ 1 ?coord) 1)) (nth$ 2 ?coord)) ?matriz) ?color)
+        (printout t "Fila adyacente: " ?fila-ady crlf)
+        (printout t "Columna adyacente: " ?columna-ady crlf)
+        (if (and (eq (nth$ (+ (* ?*tamanoFila* (- ?fila-ady 1)) ?columna-ady) ?matriz) ?color)
                  (not (member$ ?coord ?visitados)))
             then
             (printout t "Llamando recursivamente a grupo con ?coord: " ?coord crlf)
-            (bind ?resultado (grupo (nth$ 1 ?coord) (nth$ 2 ?coord) ?color ?matriz ?visitados))
+            (bind ?resultado (grupo ?fila-ady ?columna-ady ?color ?matriz ?visitados))
             (bind ?subgrupo (nth$ 1 ?resultado))
             (bind ?subvisitados (nth$ 2 ?resultado))
             (bind ?grupo (union$ ?grupo ?subgrupo))
             (bind ?visitados (union$ ?visitados ?subvisitados))
         )
+        (bind ?i (+ ?i 2))
     )
     (create$ ?grupo ?visitados)
 )
 
+
 (deffunction esta-rodeado (?grupo ?color ?matriz)
     (bind ?rodeado TRUE)
     (bind ?oponente (if (eq ?color b) then n else b))
-    (foreach ?coord ?grupo
-        (bind ?adyacentes (obtener-adyacentes (nth$ 0 ?coord) (nth$ 1 ?coord) ?matriz))
-        (foreach ?ady ?adyacentes
-            (bind ?pos (nth$ (+ (* ?*tamanoFila* (- (nth$ 0 ?ady) 1)) (nth$ 1 ?ady)) ?matriz))
+    (printout t "Grupo: " ?grupo crlf)
+    (bind ?num-coords (length$ ?grupo))
+    (bind ?i 1)
+    (while (<= ?i ?num-coords)
+        (bind ?coord (nth$ ?i ?grupo))
+        (bind ?fila (nth$ 1 ?coord))
+        (bind ?columna (nth$ 2 ?coord))
+        (bind ?adyacentes (obtener-adyacentes ?fila ?columna ?matriz))
+        (bind ?num-adyacentes (length$ ?adyacentes))
+        (bind ?j 1)
+        (while (<= ?j ?num-adyacentes)
+            (bind ?fila-ady (nth$ ?j ?adyacentes))
+            (bind ?columna-ady (nth$ (+ ?j 1) ?adyacentes))
+            (bind ?pos (nth$ (+ (* ?*tamanoFila* (- ?fila-ady 1)) ?columna-ady) ?matriz))
             (if (and (neq ?pos ?color) (neq ?pos ?oponente)) then
                 (bind ?rodeado FALSE)
             )
+            (bind ?j (+ ?j 2))
         )
+        (bind ?i (+ ?i 1))
     )
     ?rodeado
 )
+
+
+
 
 (deffunction eliminar-grupo (?grupo ?matriz)
     (foreach ?coord ?grupo
@@ -173,22 +208,26 @@
         (bind ?x (read))
         (bind ?y (read))
         (bind ?pos (+ (* ?*tamanoFila* (- ?y 1)) ?x))
-
+        (printout t "Colocando ficha en posición: " ?pos crlf)
         (bind ?est (nth$ ?pos $?mapeo))
         (if (eq ?est 0)
             then
             (progn
+                (printout t "Antes de modificar mapeo: " $?mapeo crlf)
                 (bind $?mapeo (replace$ $?mapeo ?pos ?pos (if (eq ?c b) then b else n)))
+                (printout t "Después de modificar mapeo: " $?mapeo crlf)
                 (retract ?tab)
                 (assert (tablero (matriz $?mapeo)))
                 (imprimir $?mapeo)
-
+                (printout t "Antes de llamar a comer: " $?mapeo crlf)
                 (bind ?nuevoMapa (comer ?y ?x ?c $?mapeo))
+                (printout t "Después de llamar a comer: " ?nuevoMapa crlf)
                 (if (neq ?nuevoMapa FALSE)
                     then
                     (progn
                         (retract ?tab)
                         (assert (tablero (matriz ?nuevoMapa)))
+                        (printout t "Fichas comidas, actualizando tablero." crlf)
                         (imprimir ?nuevoMapa)
                     )
                 )
