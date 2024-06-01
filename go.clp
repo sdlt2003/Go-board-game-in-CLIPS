@@ -15,6 +15,7 @@
     (slot color)
     (slot puntos)
     (slot activo)
+    (slot pass)
 )
 
 ; //////////////////////// Funciones (meter debajo de uwu_grupo)
@@ -99,48 +100,124 @@
     (return (neq ?contenido ?ultimoColor))
 )
 
+(deffunction ejes (?pos)
+    (bind ?coords (pos-a-coord ?pos))
+    (bind ?x (nth$ 1 ?coords))
+    (bind ?y (nth$ 2 ?coords))
+    (bind ?norte (if (not (fuera-de-tablero ?x (- ?y 1)))
+                    then (coord-a-pos ?x (- ?y 1))
+                    else f))
+    (bind ?sur (if (not (fuera-de-tablero ?x (+ ?y 1)))
+                    then (coord-a-pos ?x (+ ?y 1))
+                    else f))
+    (bind ?este (if (not (fuera-de-tablero (+ ?x 1) ?y))
+                    then (coord-a-pos (+ ?x 1) ?y)
+                    else f))
+    (bind ?oeste (if (not (fuera-de-tablero (- ?x 1) ?y))
+                    then (coord-a-pos (- ?x 1) ?y)
+                    else f))
+    (return (create$ ?norte ?sur ?este ?oeste))
+)
 
-; c     := color de las fichas que comen
-(deffunction rodea (?grupo ?c $?mapeo)
-    (bind $?acomer (create$))
-    (foreach ?pos ?grupo
-        ;(printout t "Comprobando si la posición " ?pos " está rodeada..." crlf)
-        (bind ?coords (pos-a-coord ?pos))
-        ;(printout t "Coordenadas de la posición: " ?coords crlf)
-        (bind ?x (nth$ 1 ?coords))
-        (bind ?y (nth$ 2 ?coords))
-        
-        ; Comprueba las posiciones adyacentes (norte, sur, este, oeste)
-        (bind ?norte (if (not (fuera-de-tablero ?x (- ?y 1)))
-                        then (coord-a-pos ?x (- ?y 1))
-                        else f))
-        (bind ?sur (if (not (fuera-de-tablero ?x (+ ?y 1)))
-                      then (coord-a-pos ?x (+ ?y 1))
-                      else f))
-        (bind ?este (if (not (fuera-de-tablero (+ ?x 1) ?y))
-                       then (coord-a-pos (+ ?x 1) ?y)
-                       else f))
-        (bind ?oeste (if (not (fuera-de-tablero (- ?x 1) ?y))
-                       then (coord-a-pos (- ?x 1) ?y)
-                       else f))
-        ;(printout t "Coordenadas norte, sur, este, oeste: " ?norte " " ?sur " " ?este " " ?oeste crlf)
-        
-        ; Verifica si la ficha en la posición ?pos está rodeada por fichas del color aliado o por límites del tablero
-        (if (and (or (eq ?norte f) (eq (nth$ ?norte $?mapeo) ?c))
-                (or (eq ?sur f) (eq (nth$ ?sur $?mapeo) ?c))
-                (or (eq ?este f) (eq (nth$ ?este $?mapeo) ?c))
-                (or (eq ?oeste f) (eq (nth$ ?oeste $?mapeo) ?c)))
+(deffunction encruzijada (?pos ?c1 $?mapeo)
+    (bind ?ejes (ejes ?pos))
+    (printout t "Ejes (dentro de encruzijada): " ?ejes crlf)
+    (bind ?enc TRUE)
+    (foreach ?eje ?ejes
+        (if (neq ?eje f) 
+        then
+            progn
+            (if (or (eq (nth$ ?eje ?mapeo) 0) (eq (nth$ ?eje ?mapeo) ?c1))
             then
-                (bind $?acomer (create$ $?acomer ?pos))
+                (bind ?enc FALSE)
+            )
         )
     )
-    ;(printout t "Rodea: " ?rodea crlf)
-    (if (eq (length$ $?acomer) 0)
-        then
-        (return FALSE)
-        else
-        (return $?acomer)
+    (return ?enc)
+)
+
+
+(deffunction suelta (?pos ?c1 $?mapeo)
+    (bind ?ejes (ejes ?pos))
+    (bind ?suelta TRUE)
+    (foreach ?eje ?ejes
+        (if (neq ?eje 0)
+            then
+            (bind ?suelta FALSE)
+        )
     )
+    return ?suelta
+)
+
+
+; grupo := grupo de fichas adyacentes a la posición ?pos que se pueden comer
+; (se trata como una variable multicampo porque )
+; c     := color de las fichas que comen
+(deffunction rodea (?grupo ?cEnemigas $?mapeo)
+    (if (eq ?cEnemigas b) then
+        (bind ?cAliadas n)
+    else
+        (bind ?cAliadas b)
+    )
+
+    (bind $?acomer (create$))
+
+    (foreach ?pos ?grupo
+        
+        (bind ?enc (encruzijada ?pos ?cAliadas $?mapeo))
+        (printout t "Resultado de ENCRUZIJADA en RODEA: " ?enc crlf)
+        
+        ; caso básico 1: ficha unica rodeada
+        (if ?enc then
+            (bind $?acomer (create$ $?acomer ?pos))
+        else
+            (printout t "Comprobando el caso general dentro de RODEA..." crlf)
+            (bind ?visitados (create$ ?pos))
+            (bind ?cola (create$ ?pos))
+            (bind ?escape FALSE)
+            
+            (while (and (> (length$ ?cola) 0) (eq ?escape FALSE)) do
+                (bind ?actual (nth$ 1 ?cola))
+                (bind ?ejes (ejes ?actual))
+
+                (printout t "Ejes de la ficha actual: " ?ejes crlf)
+
+                (bind ?visitados (create$ ?visitados ?actual))
+                (bind ?cola (delete-member$ ?cola ?actual))
+                (bind ?i (nth$ 1 ?ejes))
+                
+                (while (> (length$ ?ejes) 0) do
+                    (if (eq ?i f) then
+                            (printout t "Eje " ?i " es f" crlf)
+                    else
+                        (if (eq (nth$ ?i ?mapeo) 0)
+                            then
+                            (bind ?escape TRUE)
+                        else
+                            (if (and (not (member$ ?i ?visitados)) (eq (nth$ ?i ?mapeo) ?cAliadas))
+                                then
+                                (bind ?visitados (create$ ?visitados ?i))
+                                (bind ?cola (create$ ?cola ?i))
+                            )
+                        )
+                    )
+                    (bind ?ejes (delete-member$ ?ejes ?i))
+                    (bind ?i (nth$ 1 ?ejes))
+                )          
+                (bind ?cola (delete-member$ ?cola ?actual))      
+            )
+            (if (eq ?escape FALSE)
+                then
+                (bind $?acomer (create$ $?acomer ?visitados))
+            else
+                (printout t "No se puede comer nada" crlf)
+                (return FALSE)
+            )
+        )
+    )
+    (printout t "Resultado de RODEA (fichas que se van a comer): " $?acomer crlf)
+    (printout t "" crlf)
+    (return $?acomer)
 )
 
 ; pos    := posición de la ultima ficha colocada
@@ -187,22 +264,24 @@
         (bind ?color2 b)
     )
 
-    ;(printout t "Obteniendo fichas enemigas adyacentes a la ficha colocada..." crlf)
+    (printout t "Obteniendo fichas enemigas adyacentes a la ficha colocada..." crlf)
     (bind ?grupoEnemigo (obtener-adyacentes ?pos ?color2 $?mapeo))
-    ;(printout t "Adyacentes: " ?grupoEnemigo crlf)
+    (printout t "Adyacentes: " ?grupoEnemigo crlf)
 
     (if (neq (length$ ?grupoEnemigo) 0)
         then
         (progn
             ; Verifica si las fichas capturables están rodeadas por el grupo
-            ;(printout t "Verificando si se come alguna ficha..." crlf)
+            (printout t "Entrando en RODEA para verificar si se come alguna ficha..." crlf)
+            (printout t "" crlf)
+
             (bind ?res (rodea ?grupoEnemigo ?color1 $?mapeo))
             (if (neq ?res FALSE)
                 then 
-                    ;(printout t "Se debe(n) comer ficha(s)" crlf)
+                    (printout t "Se debe(n) comer ficha(s)" crlf)
                     (return ?res)
                 else 
-                    ;(printout t "No se debe comer nada" crlf)
+                    (printout t "No se debe comer nada" crlf)
                     (return FALSE)
             )
         )
@@ -213,12 +292,14 @@
 
 
 (deffunction comer (?pos ?c $?mapeo)
-    ;(printout t "Entrando en grupo para ver si tocamos alguna ficha adyacente enemiga" crlf)
+    (printout t "Entrando en grupo para ver si tocamos alguna ficha adyacente enemiga" crlf)
+    (printout t "" crlf)
+
     (bind ?res (grupo ?pos ?c $?mapeo)) ; tengo que conseguir que res sea una lista de posiciones de fichas a eliminar
     (if (neq ?res FALSE) ; IF no es FALSE, entonces 
         then
         (progn
-            ;(printout t "Se van a eliminar las fichas de las siguientes posiciones: " ?res crlf)
+            (printout t "Se van a eliminar las fichas de las siguientes posiciones: " ?res crlf)
             (foreach ?p ?res
                 (bind $?mapeo (replace$ $?mapeo ?p ?p 0))
             )
@@ -230,42 +311,29 @@
     )
 )
 
-
-; esta funcion tiene que comprobar si el ultimo movimiento jugado es legal. para ello seguramente
-; usará la función grupo
-;(deffunction verificar())
-(deffunction verificar (?pos ?c $?mapeo)
-    (if (eq ?c b)
-    then 
-        (bind ?c1 b)
-        (bind ?c2 n)
-    else 
-        (bind ?c1 n)
-        (bind ?c2 b)
+(deffunction ganador (?mapeo)
+    (bind ?puntosB 0)
+    (bind ?puntosN 0)
+    (loop-for-count (?i 1 (* ?*tamano* ?*tamano*)) do
+        (bind ?contenido (nth$ ?i ?mapeo))
+        (if (eq ?contenido b) then
+            (bind ?puntosB (+ ?puntosB 1))
+        )
+        (if (eq ?contenido n) then
+            (bind ?puntosN (+ ?puntosN 1))
+        )
     )
-
-    (printout t "Entrando en RODEA con pos siendo: " ?pos crlf)
-    (if (neq (rodea ?pos ?c2 $?mapeo) FALSE)
-        then
-        (return FALSE)
-        else
-        (return TRUE)
+    (if (> ?puntosB ?puntosN) then
+        (return "las blancas")
     )
+    (if (> ?puntosN ?puntosB) then
+        (return "las negras")
+    )
+    (return "oh! empate")
 )
+
 ; ///////////////////////////////////////////////////
 
-
-
-; esta funcion tiene que evaluar si para el jugador dado por parámetro, le quedan movimientos legales
-; para ello, para cada posicion del tablero que este libre, se tiene que ver si se puede colocar una ficha
-; en esa posición (con cont > 0 valdría)
-;(deffunction evaluar_fin())
-
-; esta funcion tiene que comprobar si con el ultimo movimiento jugado, no existen mas movimientos legales
-; para ello, se va a tener que comprobar cada vez que un jugador mueva, si el otro tiene al menos un movimiento
-;(deffunction fin())
-
-;///////////////////////////////////////////////////
 
 ;'Main' de la función
 
@@ -320,134 +388,166 @@
     ; inicializacion de jugador2
     (if (eq ?tipo h) then
         (if (eq ?color b) then
-            (assert (jugador (id 2) (tipo h) (color b) (puntos 0) (activo FALSE)))
+            (assert (jugador (id 2) (tipo h) (color b) (puntos 0) (activo FALSE) (pass FALSE)))
         )
         (if (eq ?color n) then
-            (assert (jugador (id 2) (tipo h) (color n) (puntos 0) (activo FALSE)))
+            (assert (jugador (id 2) (tipo h) (color n) (puntos 0) (activo FALSE) (pass FALSE)))
         )
     )
     (if (eq ?tipo m) then
         (if (eq ?color b) then
-            (assert (jugador (id 2) (tipo m) (color b) (puntos 0) (activo FALSE)))
+            (assert (jugador (id 2) (tipo m) (color b) (puntos 0) (activo FALSE) (pass FALSE)))
         )
         (if (eq ?color n) then
-            (assert (jugador (id 2) (tipo m) (color n) (puntos 0) (activo FALSE)))
+            (assert (jugador (id 2) (tipo m) (color n) (puntos 0) (activo FALSE) (pass FALSE)))
         )
     )
 )
 
 
 (defrule mov
-    ?j <- (jugador (id ?i) (tipo h) (color ?c) (puntos ?puntos) (activo TRUE))
+    ?j <- (jugador (id ?i) (tipo h) (color ?c) (puntos ?puntos) (activo TRUE) (pass ?pass))
     ?tab <- (tablero (matriz $?mapeo))
 =>
-    (bind ?aux TRUE)
-    (while ?aux do
-        (printout t (if (eq ?i 1) then "Jugador 1, " else "Jugador 2, ") "ingresa tu movimiento (x y):")
+    (bind ?movimientoValido FALSE)
+    (while (eq ?movimientoValido FALSE) do
+        (printout t (if (eq ?i 1) then "Jugador 1, " else "Jugador 2, ") "ingresa tu movimiento (x y) o acaba la partida (p p):")
         (bind ?x (read))
         (bind ?y (read))
+
+        (if (and (eq ?x p) (eq ?y p))
+            then
+                (printout t "Acabando la partida..." crlf)
+                (modify ?j (pass TRUE))
+                (return)
+        )
+
         (bind ?pos (+ (* ?*tamano* (- ?y 1)) ?x))
         (printout t "Posicion jugada: " ?pos crlf)
 
         (printout t "Verificando si el movimiento es válido..." crlf)
-        (bind $?posm (create$ ?pos))    ; "rodea" espera una variable multifield
-        ;(printout t "Entrando en VERIFICAR en MOV con posm siendo: " $?posm crlf)
-        (bind ?valido (verificar ?posm ?c $?mapeo))
+        (bind ?enc (encruzijada ?pos ?c $?mapeo))
+        (printout t "Resultado de ENCRUZIJADA: " ?enc crlf)
         (bind ?est (nth$ ?pos $?mapeo))
-        (if (and (and ?valido (eq ?est 0)) (and (<= ?x ?*tamano*) (<= ?y ?*tamano*)))
-            then
-            (progn
-                (printout t "" crlf)
-                (printout t "----------------------------------------" crlf)
-                (printout t "" crlf)
 
+        (if (and (and (eq ?enc FALSE) (eq ?est 0)) (and (<= ?x ?*tamano*) (<= ?y ?*tamano*)))
+            then
+                (printout t "Movimiento valido." crlf)
                 (bind $?mapeo (replace$ $?mapeo ?pos ?pos (if (eq ?c b) then b else n)))
                 (retract ?tab)
                 (assert (tablero (matriz $?mapeo)))
 
                 ; Llamar a comer para verificar y eliminar fichas rodeadas
-                ;(printout t "Entrando en comer para verificar y eliminar fichas rodeadas" crlf)
+                (printout t "Entrando en comer para verificar y eliminar fichas rodeadas" crlf)
                 (bind ?nuevoMapa (comer ?pos ?c $?mapeo))
-                ;(printout t "Saliendo de comer. Contenido devuelto: " ?nuevoMapa crlf)
+                
                 (if (neq ?nuevoMapa FALSE)
                     then
-                    (progn
                         (retract ?tab)
                         (assert (tablero (matriz ?nuevoMapa)))
                         (printout t "Fichas comidas, actualizando tablero." crlf)
-                        (imprimir ?nuevoMapa)
-                    )
                 )
-                (bind ?aux FALSE)
-            )
-        
-        else 
-            (printout t "Movimiento invalido. Intente de nuevo." crlf)
-            (printout t "----------------------------------------" crlf)
-            (printout t " " crlf)
+                (bind ?movimientoValido TRUE)
+            else
+                (printout t "Movimiento invalido. Intente de nuevo." crlf)
+                (printout t "----------------------------------------" crlf)
+                (printout t " " crlf)
         )
     )
-    (if (eq ?nuevoMapa FALSE)
-            then
-            (progn
-                (printout t "Tablero después del movimiento del jugador actual: " crlf)
-                (imprimir $?mapeo)
-            )
-    )
 
+    (printout t "Tablero después del movimiento del jugador actual: " crlf)
+    (if (neq ?nuevoMapa FALSE) then
+        (imprimir ?nuevoMapa)
+    else
+        (imprimir $?mapeo)
+    )
+    (printout t "----------------------------------------" crlf)
 
     ;; Cambiar la activación del jugador
     (do-for-fact ((?juga jugador)) (eq ?juga:activo FALSE)
-        (bind ?ident ?juga)
+        (modify ?juga (activo TRUE))
     )
-    (modify ?ident (activo TRUE))
     (modify ?j (activo FALSE))
+
+    (printout t "Turno completado." crlf)
 )
 
 
 (defrule mov-maquina
-    ?j <- (jugador (id ?i) (tipo m) (color ?c) (puntos ?puntos) (activo TRUE))
+    ?j <- (jugador (id ?i) (tipo m) (color ?c) (puntos ?puntos) (activo TRUE) (pass ?pass))
     ?tab <- (tablero (matriz $?mapeo))
 =>
     (printout t "Turno de la máquina..." crlf)
     (bind ?aux FALSE)
+    (bind ?lol 0)
     (while (eq ?aux FALSE)
         (bind ?mov (random 1 (* ?*tamano* ?*tamano*)))
-        ;(printout t "Posición seleccionada por la máquina: " ?mov crlf)
-        (bind $?movm (create$ ?mov))
-        ;(printout t "Entrando a VERIFICAR en MOV-MAQUINA con movm siendo: " ?movm crlf)
-        (if (and (eq (nth$ ?mov $?mapeo) 0) (verificar ?movm ?c $?mapeo))
+        (printout t "Posición seleccionada por la máquina: " ?mov crlf)
+        (if (and (eq (nth$ ?mov $?mapeo) 0) (eq (encruzijada ?mov ?c $?mapeo) FALSE))
             then
             (bind ?aux TRUE)
         )
-    )
-
-    (printout t "Posición jugada por la máquina: " ?mov crlf)
-    
-    (bind $?mapeo (replace$ $?mapeo ?mov ?mov (if (eq ?c b) then b else n)))
-    (retract ?tab)
-    (assert (tablero (matriz $?mapeo)))
-
-    ; Llamar a comer para verificar y eliminar fichas rodeadas
-    ;(printout t "Entrando en comer para verificar y eliminar fichas rodeadas" crlf)
-    (bind ?nuevoMapa (comer ?mov ?c $?mapeo))
-    ;(printout t "Saliendo de comer. Contenido devuelto: " ?nuevoMapa crlf)
-    (if (neq ?nuevoMapa FALSE)
-        then
-        (progn
-            (retract ?tab)
-            (assert (tablero (matriz ?nuevoMapa)))
-            (imprimir ?nuevoMapa)
+        (bind ?lol (+ ?lol 1))
+        (if (eq ?lol 200)
+            then
+            (printout t "La máquina no puede realizar un movimiento válido. Pasando el turno..." crlf)
+            (modify ?j (pass TRUE))
+            break
         )
-    else
-        (printout t "Tablero después del movimiento de la máquina: " crlf)
-        (imprimir $?mapeo)
     )
 
-    ;; Cambiar la activación del jugador
-    (do-for-fact ((?juga jugador)) (eq ?juga:activo FALSE)
-        (bind ?ident ?juga)
+    (if (eq ?aux TRUE) then
+        (printout t "Posición jugada por la máquina: " ?mov crlf)
+    
+        (bind $?mapeo (replace$ $?mapeo ?mov ?mov (if (eq ?c b) then b else n)))
+        (retract ?tab)
+        (assert (tablero (matriz $?mapeo)))
+
+        ; Llamar a comer para verificar y eliminar fichas rodeadas
+        ;(printout t "Entrando en comer para verificar y eliminar fichas rodeadas" crlf)
+        (bind ?nuevoMapa (comer ?mov ?c $?mapeo))
+        ;(printout t "Saliendo de comer. Contenido devuelto: " ?nuevoMapa crlf)
+        (if (neq ?nuevoMapa FALSE)
+            then
+            (progn
+                (retract ?tab)
+                (assert (tablero (matriz ?nuevoMapa)))
+                (imprimir ?nuevoMapa)
+            )
+        else
+            (printout t "Tablero después del movimiento de la máquina: " crlf)
+            (imprimir $?mapeo)
+        )
+
+        ;; Cambiar la activación del jugador
+        (do-for-fact ((?juga jugador)) (eq ?juga:activo FALSE)
+            (bind ?ident ?juga)
+        )
+        (modify ?ident (activo TRUE))
+        (modify ?j (activo FALSE))
     )
-    (modify ?ident (activo TRUE))
-    (modify ?j (activo FALSE))
+)
+    
+
+(defrule fin
+    (declare (salience 10))
+    ?tab <- (tablero (matriz $?mapeo))
+    ?j <- (jugador (id ?i) (tipo ?t) (color ?c) (puntos ?puntos) (activo ?act) (pass TRUE))
+=>
+    (printout t "" crlf)
+    (printout t "------------------------------------------" crlf)
+    (printout t "" crlf)
+
+    (printout t "Juego terminado." crlf)
+    (printout t "Tablero final: " crlf)
+    (imprimir $?mapeo)
+
+    (printout t "" crlf)
+    (printout t "------------------------------------------" crlf)
+    (printout t "" crlf)
+
+    (bind ?p1 (ganador ?mapeo))
+    (printout t "Ganador: " ?p1 "!" crlf)
+    
+    (halt)
 )
