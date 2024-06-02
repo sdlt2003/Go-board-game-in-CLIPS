@@ -539,8 +539,6 @@
     (printout t "" crlf)
 
     (printout t "Juego terminado." crlf)
-    (printout t "Tablero final: " crlf)
-    (imprimir $?mapeo)
 
     (printout t "" crlf)
     (printout t "------------------------------------------" crlf)
