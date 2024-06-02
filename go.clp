@@ -119,9 +119,9 @@
     (return (create$ ?norte ?sur ?este ?oeste))
 )
 
-(deffunction encruzijada (?pos ?c1 $?mapeo)
+(deffunction encrucijada (?pos ?c1 $?mapeo)
     (bind ?ejes (ejes ?pos))
-    (printout t "Ejes (dentro de encruzijada): " ?ejes crlf)
+    (printout t "Ejes (dentro de encrucijada): " ?ejes crlf)
     (bind ?enc TRUE)
     (foreach ?eje ?ejes
         (if (neq ?eje f) 
@@ -164,8 +164,8 @@
 
     (foreach ?pos ?grupo
         
-        (bind ?enc (encruzijada ?pos ?cAliadas $?mapeo))
-        (printout t "Resultado de ENCRUZIJADA en RODEA: " ?enc crlf)
+        (bind ?enc (encrucijada ?pos ?cAliadas $?mapeo))
+        (printout t "Resultado de ENCRUCIJADA en RODEA: " ?enc crlf)
         
         ; caso básico 1: ficha unica rodeada
         (if ?enc then
@@ -426,8 +426,8 @@
         (printout t "Posicion jugada: " ?pos crlf)
 
         (printout t "Verificando si el movimiento es válido..." crlf)
-        (bind ?enc (encruzijada ?pos ?c $?mapeo))
-        (printout t "Resultado de ENCRUZIJADA: " ?enc crlf)
+        (bind ?enc (encrucijada ?pos ?c $?mapeo))
+        (printout t "Resultado de ENCRUCIJADA: " ?enc crlf)
         (bind ?est (nth$ ?pos $?mapeo))
 
         (if (and (and (eq ?enc FALSE) (eq ?est 0)) (and (<= ?x ?*tamano*) (<= ?y ?*tamano*)))
@@ -483,7 +483,7 @@
     (while (eq ?aux FALSE)
         (bind ?mov (random 1 (* ?*tamano* ?*tamano*)))
         (printout t "Posición seleccionada por la máquina: " ?mov crlf)
-        (if (and (eq (nth$ ?mov $?mapeo) 0) (eq (encruzijada ?mov ?c $?mapeo) FALSE))
+        (if (and (eq (nth$ ?mov $?mapeo) 0) (eq (encrucijada ?mov ?c $?mapeo) FALSE))
             then
             (bind ?aux TRUE)
         )
